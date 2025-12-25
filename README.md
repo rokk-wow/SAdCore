@@ -22,14 +22,15 @@ To create a new addon using SAdCore as your framework:
 
 2. **Rename the SAdCore.toc file** to match your addon name (e.g., `MyAddon.toc`)
 
-3. **Update your TOC file** and set three key values:
+3. **Update your TOC file** and change MyAddon to the unique name of your addon:
    ```
+   ## Title: MyAddon
    ## AddonCompartmentFunc: MyAddon_Compartment_Func
    ## SavedVariables: MyAddon_Settings_Global
    ## SavedVariablesPerCharacter: MyAddon_Settings_Char
    ```
 
-4. **Update Addon.lua** with the same three values:
+4. **Update Addon.lua** update these values to match the TOC:
    ```lua
    addon.config.toc = {
        AddonCompartmentFunc = "MyAddon_Compartment_Func",
@@ -212,104 +213,6 @@ function addon.PrintDebuggingStatus()
 end
 ```
 
-## Logging Functions
-
-- **`addon.debug(text)`** - Only displays when "Enable Debugging" is enabled in settings
-- **`addon.info(text)`** - Always displays (informational messages)
-- **`addon.error(text)`** - Always displays (error messages)
-
-## Hooks
-
-SAdCore provides Before and After hooks for every function, allowing you to extend functionality without modifying core code.
-
-**Before Hooks** receive the function's input parameters and MUST return them (potentially modified). This allows you to intercept and transform parameters before the function executes.
-
-**After Hooks** receive the function's return value(s) for observation. They do not need to return anything.
-
-### Initialization Hooks
-- `BeforeInitialize()` → must return nothing / `AfterInitialize(returnValue)`
-- `BeforeLoadConfig()` → must return nothing / `AfterLoadConfig()`
-- `BeforeInitializeCompartmentFunc(compartmentFunc)` → must return compartmentFunc / `AfterInitializeCompartmentFunc(returnValue)`
-- `BeforeInitializeSavedVariables(savedVars, savedVarsPerChar)` → must return savedVars, savedVarsPerChar / `AfterInitializeSavedVariables(returnValue)`
-
-### Registration Hooks
-- `BeforeRegisterEvent(eventName, callback)` → must return eventName, callback / `AfterRegisterEvent(returnValue)`
-- `BeforeRegisterSlashCommand(command, callback)` → must return command, callback / `AfterRegisterSlashCommand(returnValue)`
-- `BeforeCreateSlashCommand()` → must return nothing / `AfterCreateSlashCommand(returnValue)`
-
-### Settings Panel Hooks
-- `BeforeConfigureMainSettings()` → must return nothing / `AfterConfigureMainSettings(returnValue)`
-- `BeforeInitializeSettingsPanel()` → must return nothing / `AfterInitializeSettingsPanel(returnValue)`
-- `BeforeBuildMainSettingsPanel()` → must return nothing / `AfterBuildMainSettingsPanel(panel)`
-- `BeforeBuildChildSettingsPanel(panelKey)` → must return panelKey / `AfterBuildChildSettingsPanel(panel)`
-- `BeforeCreateSettingsPanel(panelKey)` → must return panelKey / `AfterCreateSettingsPanel(panel)`
-- `BeforeRefreshSettingsPanels()` → must return nothing / `AfterRefreshSettingsPanels(returnValue)`
-
-### UI Control Hooks
-- `BeforeAddHeader(parent, yOffset, panelKey, name)` → must return parent, yOffset, panelKey, name / `AfterAddHeader(header, newYOffset)`
-- `BeforeAddCheckbox(parent, yOffset, panelKey, name, tooltip, defaultValue, onValueChange, skipRefresh, persistent)` → must return all 9 params / `AfterAddCheckbox(checkbox, newYOffset)`
-- `BeforeAddDropdown(parent, yOffset, panelKey, name, tooltip, defaultValue, options, onValueChange, skipRefresh, persistent)` → must return all 10 params / `AfterAddDropdown(dropdown, newYOffset)`
-- `BeforeAddSlider(parent, yOffset, panelKey, name, tooltip, defaultValue, minValue, maxValue, step, onValueChange, skipRefresh, persistent)` → must return all 12 params / `AfterAddSlider(slider, newYOffset)`
-- `BeforeAddButton(parent, yOffset, panelKey, name, tooltip, onClick)` → must return parent, yOffset, panelKey, name, tooltip, onClick / `AfterAddButton(button, newYOffset)`
-- `BeforeAddDescription(parent, yOffset, panelKey, name, onClick, color)` → must return parent, yOffset, panelKey, name, onClick, color / `AfterAddDescription(frame, newYOffset)`
-- `BeforeAddInputBox(parent, yOffset, panelKey, name, default, tooltip, highlightText, buttonText, onClick, persistent)` → must return all 10 params / `AfterAddInputBox(control, newYOffset)`
-- `BeforeShowDialog(dialogOptions)` → must return dialogOptions / `AfterShowDialog(dialog)`
-- `BeforeAddControl(parent, yOffset, panelKey, controlConfig)` → must return parent, yOffset, panelKey, controlConfig / `AfterAddControl(control, newYOffset)`
-
-### Utility Function Hooks
-- `BeforeHexToRGB(hex)` → must return hex / `AfterHexToRGB(red, green, blue)`
-- `BeforeOpenSettings()` → must return nothing / `AfterOpenSettings(returnValue)`
-- `BeforeL(key)` → must return key / `AfterL(result)`
-- `BeforeInfo(text)` → must return text / `AfterInfo(returnValue)`
-- `BeforeError(text)` → must return text / `AfterError(returnValue)`
-- `BeforeDebug(text)` → must return text / `AfterDebug(returnValue)`
-- `BeforePrintParams(...)` → must return varargs / `AfterPrintParams(returnValue)`
-- `BeforeDecodeExportString(exportString)` → must return exportString / `AfterDecodeExportString(data)`
-- `BeforeCountTableEntries(tbl)` → must return tbl / `AfterCountTableEntries(count)`
-- `BeforeSerializableCopy(original, exclusions)` → must return original, exclusions / `AfterSerializableCopy(copy)`
-- `BeforeDeepMerge(target, source, exclusions)` → must return target, source, exclusions / `AfterDeepMerge(target)`
-- `BeforeUpdateActiveSettings(useCharacter)` → must return useCharacter / `AfterUpdateActiveSettings(returnValue)`
-- `BeforeRefreshSettingsPanels()` → must return nothing / `AfterRefreshSettingsPanels(returnValue)`
-
-### Import/Export Hooks
-- `BeforeExportSettings()` → must return nothing / `AfterExportSettings(encoded)`
-- `BeforeImportSettings(serializedString)` → must return serializedString / `AfterImportSettings(success)`
-
-### Hook Usage Examples
-
-**Before Hook - Modifying Parameters:**
-```lua
--- Make all localization keys uppercase
-function addon.BeforeL(key)
-    return key:upper()  -- Return the modified parameter
-end
-```
-
-**Before Hook - Pass-through (no modification):**
-```lua
--- Log but don't modify
-function addon.BeforeInfo(text)
-    -- Do something with the text
-    return text  -- Must still return it unchanged
-end
-```
-
-**After Hook - Observation Only:**
-```lua
--- Log when initialization completes
-function addon.AfterInitialize(success)
-    if success then
-        addon.info("Addon initialized successfully!")
-    end
-    -- After hooks don't need to return anything
-end
-
--- Customize all checkboxes after creation
-function addon.AfterAddCheckbox(checkbox, newYOffset)
-    checkbox:SetAlpha(0.9)
-end
-```
-
 ## Slash Commands
 
 SAdCore automatically creates a slash command for your addon based on your addon name. For example, if your addon is named `MyAddon`, the slash command will be `/myaddon`.
@@ -455,3 +358,101 @@ Here are some frequently used events:
 - **`COMBAT_LOG_EVENT_UNFILTERED`** - Combat log events
 
 For a complete list of events, see the [WoW API documentation](https://wowpedia.fandom.com/wiki/Events).
+
+## Logging Functions
+
+- **`addon.debug(text)`** - Only displays when "Enable Debugging" is enabled in settings
+- **`addon.info(text)`** - Always displays (informational messages)
+- **`addon.error(text)`** - Always displays (error messages)
+
+## Hooks
+
+SAdCore provides Before and After hooks for every function, allowing you to extend functionality without modifying core code.
+
+**Before Hooks** receive the function's input parameters and MUST return them (potentially modified). This allows you to intercept and transform parameters before the function executes.
+
+**After Hooks** receive the function's return value(s) for observation. They do not need to return anything.
+
+### Initialization Hooks
+- `BeforeInitialize()` → must return nothing / `AfterInitialize(returnValue)`
+- `BeforeLoadConfig()` → must return nothing / `AfterLoadConfig()`
+- `BeforeInitializeCompartmentFunc(compartmentFunc)` → must return compartmentFunc / `AfterInitializeCompartmentFunc(returnValue)`
+- `BeforeInitializeSavedVariables(savedVars, savedVarsPerChar)` → must return savedVars, savedVarsPerChar / `AfterInitializeSavedVariables(returnValue)`
+
+### Registration Hooks
+- `BeforeRegisterEvent(eventName, callback)` → must return eventName, callback / `AfterRegisterEvent(returnValue)`
+- `BeforeRegisterSlashCommand(command, callback)` → must return command, callback / `AfterRegisterSlashCommand(returnValue)`
+- `BeforeCreateSlashCommand()` → must return nothing / `AfterCreateSlashCommand(returnValue)`
+
+### Settings Panel Hooks
+- `BeforeConfigureMainSettings()` → must return nothing / `AfterConfigureMainSettings(returnValue)`
+- `BeforeInitializeSettingsPanel()` → must return nothing / `AfterInitializeSettingsPanel(returnValue)`
+- `BeforeBuildMainSettingsPanel()` → must return nothing / `AfterBuildMainSettingsPanel(panel)`
+- `BeforeBuildChildSettingsPanel(panelKey)` → must return panelKey / `AfterBuildChildSettingsPanel(panel)`
+- `BeforeCreateSettingsPanel(panelKey)` → must return panelKey / `AfterCreateSettingsPanel(panel)`
+- `BeforeRefreshSettingsPanels()` → must return nothing / `AfterRefreshSettingsPanels(returnValue)`
+
+### UI Control Hooks
+- `BeforeAddHeader(parent, yOffset, panelKey, name)` → must return parent, yOffset, panelKey, name / `AfterAddHeader(header, newYOffset)`
+- `BeforeAddCheckbox(parent, yOffset, panelKey, name, tooltip, defaultValue, onValueChange, skipRefresh, persistent)` → must return all 9 params / `AfterAddCheckbox(checkbox, newYOffset)`
+- `BeforeAddDropdown(parent, yOffset, panelKey, name, tooltip, defaultValue, options, onValueChange, skipRefresh, persistent)` → must return all 10 params / `AfterAddDropdown(dropdown, newYOffset)`
+- `BeforeAddSlider(parent, yOffset, panelKey, name, tooltip, defaultValue, minValue, maxValue, step, onValueChange, skipRefresh, persistent)` → must return all 12 params / `AfterAddSlider(slider, newYOffset)`
+- `BeforeAddButton(parent, yOffset, panelKey, name, tooltip, onClick)` → must return parent, yOffset, panelKey, name, tooltip, onClick / `AfterAddButton(button, newYOffset)`
+- `BeforeAddDescription(parent, yOffset, panelKey, name, onClick, color)` → must return parent, yOffset, panelKey, name, onClick, color / `AfterAddDescription(frame, newYOffset)`
+- `BeforeAddInputBox(parent, yOffset, panelKey, name, default, tooltip, highlightText, buttonText, onClick, persistent)` → must return all 10 params / `AfterAddInputBox(control, newYOffset)`
+- `BeforeShowDialog(dialogOptions)` → must return dialogOptions / `AfterShowDialog(dialog)`
+- `BeforeAddControl(parent, yOffset, panelKey, controlConfig)` → must return parent, yOffset, panelKey, controlConfig / `AfterAddControl(control, newYOffset)`
+
+### Utility Function Hooks
+- `BeforeHexToRGB(hex)` → must return hex / `AfterHexToRGB(red, green, blue)`
+- `BeforeOpenSettings()` → must return nothing / `AfterOpenSettings(returnValue)`
+- `BeforeL(key)` → must return key / `AfterL(result)`
+- `BeforeInfo(text)` → must return text / `AfterInfo(returnValue)`
+- `BeforeError(text)` → must return text / `AfterError(returnValue)`
+- `BeforeDebug(text)` → must return text / `AfterDebug(returnValue)`
+- `BeforePrintParams(...)` → must return varargs / `AfterPrintParams(returnValue)`
+- `BeforeDecodeExportString(exportString)` → must return exportString / `AfterDecodeExportString(data)`
+- `BeforeCountTableEntries(tbl)` → must return tbl / `AfterCountTableEntries(count)`
+- `BeforeSerializableCopy(original, exclusions)` → must return original, exclusions / `AfterSerializableCopy(copy)`
+- `BeforeDeepMerge(target, source, exclusions)` → must return target, source, exclusions / `AfterDeepMerge(target)`
+- `BeforeUpdateActiveSettings(useCharacter)` → must return useCharacter / `AfterUpdateActiveSettings(returnValue)`
+- `BeforeRefreshSettingsPanels()` → must return nothing / `AfterRefreshSettingsPanels(returnValue)`
+
+### Import/Export Hooks
+- `BeforeExportSettings()` → must return nothing / `AfterExportSettings(encoded)`
+- `BeforeImportSettings(serializedString)` → must return serializedString / `AfterImportSettings(success)`
+
+### Hook Usage Examples
+
+**Before Hook - Modifying Parameters:**
+```lua
+-- Make all localization keys uppercase
+function addon.BeforeL(key)
+    return key:upper()  -- Return the modified parameter
+end
+```
+
+**Before Hook - Pass-through (no modification):**
+```lua
+-- Log but don't modify
+function addon.BeforeInfo(text)
+    -- Do something with the text
+    return text  -- Must still return it unchanged
+end
+```
+
+**After Hook - Observation Only:**
+```lua
+-- Log when initialization completes
+function addon.AfterInitialize(success)
+    if success then
+        addon.info("Addon initialized successfully!")
+    end
+    -- After hooks don't need to return anything
+end
+
+-- Customize all checkboxes after creation
+function addon.AfterAddCheckbox(checkbox, newYOffset)
+    checkbox:SetAlpha(0.9)
+end
+```

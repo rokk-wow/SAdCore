@@ -1,5 +1,5 @@
 ## Interface: 110207, 120000
-## Title: SAdCore
+## Title: MyAddon
 ## Author: Rôkk-Wyrmrest Accord
 ## AddonCompartmentFunc: MyAddon_Compartment_Func
 ## SavedVariables: MyAddon_Settings_Global
