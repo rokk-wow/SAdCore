@@ -1,0 +1,9 @@
+## Interface: 110207, 120000
+## Title: Lib: Compress
+## Notes: Simple compression/encoding library
+## Author: Various
+## Version: 1.0
+## LoadOnDemand: 1
+
+LibStub\LibStub.lua
+LibCompress.lua

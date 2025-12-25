@@ -1,0 +1,9 @@
+## Interface: 110207, 120000
+## Title: Lib: Serialize
+## Notes: Simple table serialization library
+## Author: Various
+## Version: 1.0
+## LoadOnDemand: 1
+
+LibStub\LibStub.lua
+LibSerialize.lua

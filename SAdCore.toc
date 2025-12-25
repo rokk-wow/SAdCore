@@ -1,0 +1,18 @@
+## Interface: 110207, 120000
+## Title: SAdCore
+## Author: Rôkk-Wyrmrest Accord
+## AddonCompartmentFunc: CHANGE_TO_UNIQUE_COMPARTMENT_FUNCTION_NAME
+## SavedVariables: CHANGE_TO_UNIQUE_SAVED_VARIABLE_NAME
+## SavedVariablesPerCharacter: CHANGE_TO_UNIQUE_SAVED_VARIABLE_PER_CHARACTER_NAME
+## IconTexture: Interface\Icons\boss_odunrunes_green
+
+Libs\LibSerialize\LibStub\LibStub.lua
+Libs\LibSerialize\LibSerialize.lua
+Libs\LibCompress\LibCompress.lua
+
+# Add additional addon files here
+
+SAdTemplates.xml
+Localization.lua
+Addon.lua
+SAdCore.lua
