@@ -1,5 +1,30 @@
 local addonName, addon = ...
 
+-- SAdCore is a free and open source quick start template for rapidly developing addons.
+--
+-- The goal is for this framework to handle all settings, saved variables, config UI and other
+-- basic functionality so that you can get straight to coding the actual addon.
+--
+-- Just by adding a simple configuration, you get:
+--   • Fully functional settings panel that matches Blizzards UI with your custom settings
+--   • Addon compartment support
+--   • Access to all user configurations
+--   • Quick and easy slash commands
+--   • Event hooks
+--   • Settings import/export
+--
+-- You are free to use this for your own addon. My only request is if you choose to use the SAd prefix for your,
+-- addon name then you will try your best to follow the SAd Creed.
+--
+-- ## The SAd Creed
+--   Easy        - If a configuration setting is more complicated than a checkbox, it's probably wrong
+--   Simple      - If a user doesn't understand your configuration without additional instructions, it's probably wrong
+--   Intuitive   - If a user can't remember where they saw a particular configuration setting, it's probably wrong
+--   Relevant    - If a configuration setting doesn't directly relate to the name of the addon, it's probably wrong
+--   Respectful  - If a users game setting is changed just by installing the addon, it's probably wrong
+--   Clear       - Checkboxes should enable, not disable ("Show Map", not "Hide Map")
+--   Robust      - All code exists inside addon functions. The only global code is registering the ADDON_LOADED event
+
 function addon.LoadConfig()
     addon.config.version = "1.1"
 
