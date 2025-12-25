@@ -29,7 +29,7 @@ To create a new addon using SAdCore as your framework:
    ## SavedVariablesPerCharacter: MyAddon_Settings_Char
    ```
 
-4. **Update SAdConfig.lua** with the same three values:
+4. **Update Addon.lua** with the same three values:
    ```lua
    addon.config.toc = {
        AddonCompartmentFunc = "MyAddon_Compartment_Func",
