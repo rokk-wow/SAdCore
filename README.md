@@ -309,3 +309,149 @@ function addon.AfterAddCheckbox(checkbox, newYOffset)
     checkbox:SetAlpha(0.9)
 end
 ```
+
+## Slash Commands
+
+SAdCore automatically creates a slash command for your addon based on your addon name. For example, if your addon is named `MyAddon`, the slash command will be `/myaddon`.
+
+### Default Behavior
+
+When you type the slash command with no arguments (e.g., `/myaddon`), it opens your addon's settings panel.
+
+### Registering Custom Slash Commands
+
+Register custom slash commands using `addon.RegisterSlashCommand(command, callback)`:
+
+**Parameters:**
+- **`command`** - The subcommand name (case-insensitive)
+- **`callback`** - Function to execute when the command is used
+
+**Example:**
+```lua
+function addon.RegisterFunctions()
+    -- Register /myaddon hello
+    addon.RegisterSlashCommand("hello", function()
+        addon.info("Hello, World!")
+    end)
+    
+    -- Register /myaddon reset
+    addon.RegisterSlashCommand("reset", function()
+        addon.info("Resetting settings...")
+        -- Your reset logic here
+    end)
+    
+    -- Command with parameters
+    addon.RegisterSlashCommand("debug", function(enabled)
+        if enabled == "on" then
+            addon.settings.main.enableDebugging = true
+            addon.info("Debugging enabled")
+        elseif enabled == "off" then
+            addon.settings.main.enableDebugging = false
+            addon.info("Debugging disabled")
+        else
+            addon.info("Usage: /myaddon debug on|off")
+        end
+    end)
+end
+```
+
+### Using Slash Commands In-Game
+
+**Basic usage:**
+```
+/myaddon                    -- Opens settings panel
+/myaddon hello              -- Runs the "hello" command
+/myaddon debug on           -- Runs "debug" with parameter "on"
+```
+
+**Built-in commands:**
+- `/myaddon import` - Opens import dialog for settings
+- `/myaddon decode <string>` - Decodes an export string (for debugging)
+
+### Multiple Parameters
+
+When users type multiple parameters, they are split by spaces and passed to your callback function:
+
+```lua
+addon.RegisterSlashCommand("teleport", function(zone, x, y)
+    addon.info(string.format("Teleporting to %s at (%s, %s)", zone or "?", x or "?", y or "?"))
+end)
+
+-- Usage: /myaddon teleport Orgrimmar 50 75
+```
+
+## Event Registration
+
+SAdCore provides a simple event registration system that handles frame creation and callback management automatically.
+
+### Registering Events
+
+Register game events using `addon.RegisterEvent(eventName, callback)`:
+
+**Parameters:**
+- **`eventName`** - The WoW event name (e.g., "PLAYER_ENTERING_WORLD", "COMBAT_LOG_EVENT_UNFILTERED")
+- **`callback`** - Function to execute when the event fires. Receives `(event, ...)` where `...` are event-specific parameters
+
+**Example:**
+```lua
+function addon.RegisterFunctions()
+    -- Register a simple event
+    addon.RegisterEvent("PLAYER_ENTERING_WORLD", function(event)
+        addon.info("Player has entered the world!")
+    end)
+    
+    -- Register event with parameters
+    addon.RegisterEvent("PLAYER_REGEN_DISABLED", function(event)
+        addon.info("Entering combat!")
+    end)
+    
+    addon.RegisterEvent("PLAYER_REGEN_ENABLED", function(event)
+        addon.info("Leaving combat!")
+    end)
+    
+    -- Event with additional parameters
+    addon.RegisterEvent("UNIT_HEALTH", function(event, unitID)
+        if unitID == "player" then
+            local health = UnitHealth("player")
+            local maxHealth = UnitHealthMax("player")
+            addon.debug(string.format("Health: %d/%d", health, maxHealth))
+        end
+    end)
+    
+    -- Chat message event
+    addon.RegisterEvent("CHAT_MSG_SYSTEM", function(event, message)
+        addon.debug("System message: " .. message)
+    end)
+end
+```
+
+### Event Frame Management
+
+SAdCore automatically creates and manages an event frame for you:
+- The first call to `addon.RegisterEvent()` creates the frame
+- All subsequent events are registered on the same frame
+- Each event has its own callback function
+- No need to manually create frames or manage OnEvent scripts
+
+### Unregistering Events
+
+To unregister an event, access the event frame directly:
+
+```lua
+addon.eventFrame:UnregisterEvent("UNIT_HEALTH")
+```
+
+### Common WoW Events
+
+Here are some frequently used events:
+
+- **`ADDON_LOADED`** - Fires when an addon loads (already used by SAdCore for initialization)
+- **`PLAYER_ENTERING_WORLD`** - Player enters world or reloads UI
+- **`PLAYER_LOGIN`** - Player logs in (fires once per session)
+- **`PLAYER_REGEN_DISABLED`** - Player enters combat
+- **`PLAYER_REGEN_ENABLED`** - Player leaves combat
+- **`UNIT_HEALTH`** - Unit's health changes
+- **`CHAT_MSG_*`** - Various chat events (SYSTEM, SAY, WHISPER, etc.)
+- **`COMBAT_LOG_EVENT_UNFILTERED`** - Combat log events
+
+For a complete list of events, see the [WoW API documentation](https://wowpedia.fandom.com/wiki/Events).
