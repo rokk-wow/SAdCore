@@ -22,7 +22,7 @@ To create a new addon using SAdCore as your framework:
 
 2. **Rename the SAdCore.toc file** to match your addon name (e.g., `MyAddon.toc`)
 
-3. **Edit your TOC file** and set three key values:
+3. **Update your TOC file** and set three key values:
    ```
    ## AddonCompartmentFunc: MyAddon_Compartment_Func
    ## SavedVariables: MyAddon_Settings_Global
@@ -38,7 +38,7 @@ To create a new addon using SAdCore as your framework:
    }
    ```
 
-5. **Configure your settings panels** by adding controls to `addon.config.settings`:
+5. **Update Addon.lua - Configure your settings panels** by adding controls to `addon.config.settings`:
    ```lua
    addon.config.settings.main = {
        title = "My Addon Settings",
