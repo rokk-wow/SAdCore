@@ -135,6 +135,9 @@ do  -- Initialization
 
         local returnValue = true
         callHook("AfterInitialize", returnValue)
+        
+        addon.initialized = true
+
         return returnValue
     end
 
