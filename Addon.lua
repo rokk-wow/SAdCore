@@ -50,10 +50,16 @@ function addon.LoadConfig()
                 name = "exampleCheckbox",
                 tooltip = "exampleCheckboxTooltip",
                 default = true,
-                persistent = true
+                persistent = true,
+                onValueChange = addon.exampleCheckbox,
+                onLoad = addon.exampleCheckbox
             },
         }
     }
+
+    function addon.exampleCheckbox(isChecked)
+        addon.info("Checkbox changed to: " .. tostring(isChecked))
+    end
 
     -- Example - Add a New Child Settings Panel
     addon.config.settings.example = {
@@ -67,26 +73,31 @@ function addon.LoadConfig()
             -- Checkbox (persisted to database)
             {
                 type = "checkbox",
-                name = "exampleCheckbox",
-                tooltip = "exampleCheckboxTooltip",
+                name = "exampleCheckbox2",
+                tooltip = "exampleCheckbox2Tooltip",
                 default = true,
-                persistent = true
+                persistent = true,
+                onValueChange = addon.exampleCheckbox2,
+                onLoad = addon.exampleCheckbox2
             },
         }
     }
+
+    function addon.exampleCheckbox2(isChecked)
+        addon.info("Checkbox changed to: " .. tostring(isChecked))
+    end
 end
 
 -- Example Registration Functions
 function addon.RegisterFunctions()
+    addon.RegisterSlashCommand("hello", addon.HelloCommand)
+    addon.RegisterEvent("PLAYER_ENTERING_WORLD", addon.OnPlayerEnteringWorld)
+end
 
-    -- Register /myaddon hello (change myaddon to the name of your addon)
-    addon.RegisterSlashCommand("hello", function()
-        addon.info("Hello, World!")
-    end)
-    
-    -- Register a simple event
-    addon.RegisterEvent("PLAYER_ENTERING_WORLD", function(event)
-        addon.info("Player has entered the world!")
-    end)
-    
+function addon.HelloCommand()
+    addon.info("Hello, World!")
+end
+
+function addon.OnPlayerEnteringWorld(event)
+    addon.info("Player has entered the world!")
 end

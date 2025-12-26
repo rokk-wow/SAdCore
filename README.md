@@ -16,40 +16,23 @@ SAdCore is a framework for rapidly building simple addons with consistent option
 
 ## Getting Started
 
-To create a new addon using SAdCore as your framework:
+1. Rename the folder and `.toc` file to your addon name
+2. Update the TOC file with your addon name in Title, AddonCompartmentFunc, SavedVariables, and SavedVariablesPerCharacter
+3. Update the same values in `Addon.lua` under `addon.config.toc`
+4. Add your controls to `addon.config.settings.main` in `Addon.lua`
+5. Add localization strings to `Localization.lua`
 
-1. **Rename the folder** from `SAdCore` to your addon name (e.g., `MyAddon`)
+## Localization
 
-2. **Rename the SAdCore.toc file** to match your addon name (e.g., `MyAddon.toc`)
+All user-facing text uses localization keys. If you see `[keyName]` in your UI, add that key to `Localization.lua`:
 
-3. **Update your TOC file** and change MyAddon to the unique name of your addon:
-   ```
-   ## Title: MyAddon
-   ## AddonCompartmentFunc: MyAddon_Compartment_Func
-   ## SavedVariables: MyAddon_Settings_Global
-   ## SavedVariablesPerCharacter: MyAddon_Settings_Char
-   ```
+```lua
+addon.locale.enEN = {
+    keyName = "Your Text Here"
+}
+```
 
-4. **Update Addon.lua** update these values to match the TOC:
-   ```lua
-   addon.config.toc = {
-       AddonCompartmentFunc = "MyAddon_Compartment_Func",
-       SavedVariables = "MyAddon_Settings_Global",
-       SavedVariablesPerCharacter = "MyAddon_Settings_Char"
-   }
-   ```
-
-5. **Update Addon.lua - Configure your settings panels** by adding controls to `addon.config.settings`:
-   ```lua
-   addon.config.settings.main = {
-       title = "My Addon Settings",
-       controls = {
-           -- Add your controls here
-       }
-   }
-   ```
-
-6. **Add localization strings** to `Localization.lua` for all text that appears in your UI
+The framework automatically replaces keys with localized text.
 
 ## Control Properties
 
@@ -62,6 +45,7 @@ All controls support these common properties:
 - **`tooltip`** (optional) - Localization key for tooltip text shown on hover
 - **`persistent`** (optional) - When `true`, the control's value is saved to SavedVariables (either global or per-character). When absent or `false`, the control is session-only and not persisted. Applies to: `checkbox`, `dropdown`, `slider`, `inputBox`
 - **`onValueChange`** (optional) - Callback function that fires immediately when the user changes the control's value. Receives the new value as a parameter. Perfect for applying settings in real-time without requiring a UI reload. Applies to: `checkbox`, `dropdown`, `slider`, `inputBox`
+- **`onLoad`** (optional) - Callback function that fires when the game starts or the addon loads. Receives the saved value as a parameter. Applies to: `checkbox`, `dropdown`, `slider`, `inputBox`
 
 ### Control-Specific Properties
 
@@ -74,52 +58,26 @@ All controls support these common properties:
 
 ### Persistent vs Session-Only Controls
 
-By default, controls are session-only and their values are **not** saved to SavedVariables. To persist a control's value, you must explicitly set `persistent = true`.
-
-**Use cases for session-only controls (no persistent flag):**
-- Import/export string input fields
-- Temporary configuration wizards
-- Preview/test settings that shouldn't be saved
-- UI elements that trigger actions but don't store state
-
-**Use cases for persistent controls (persistent = true):**
-- User preferences that should be remembered
-- Configuration settings that affect addon behavior
-- Options that should survive /reload or logout
-
-**Example (session-only):**
-```lua
-{
-    type = "inputBox",
-    name = "loadSettings",
-    buttonText = "loadSettingsButton",
-    tooltip = "loadSettingsTooltip",
-    -- No persistent flag = session-only, value won't be saved
-    onClick = function(inputText, editBox)
-        addon.ImportSettings(inputText)
-        editBox:SetText("")  -- Clear after import
-    end
-}
-```
+Set `persistent = true` to save settings permanently (survives logout/exit). Controls default to session-only.
 
 **Example (persistent):**
 ```lua
+function addon.EnableNotificationSystem(isEnabled)
+    -- Your code here
+end
+
 {
     type = "checkbox",
     name = "enableNotifications",
     tooltip = "enableNotificationsTooltip",
     default = true,
-    persistent = true,  -- Explicitly persist this setting
-    onValueChange = function(isEnabled)
-        -- Apply the setting immediately without needing /reload
-        if isEnabled then
-            addon.StartNotificationSystem()
-        else
-            addon.StopNotificationSystem()
-        end
-    end
+    persistent = true,
+    onValueChange = addon.EnableNotificationSystem,
+    onLoad = addon.EnableNotificationSystem
 }
 ```
+
+Use **onValueChange** when the user changes a setting. Use **onLoad** when the addon loads. Often you'll use both.
 
 ## Example Controls
 
@@ -147,9 +105,8 @@ addon.config.settings.example = {
             tooltip = "exampleCheckboxTooltip",
             default = true,
             persistent = true,
-            onValueChange = function(isChecked)
-                addon.info("Checkbox changed to: " .. tostring(isChecked))
-            end
+            onValueChange = addon.exampleCheckboxChanged,
+            onLoad = addon.exampleCheckboxChanged
         },
         -- Checkbox (session-only - not saved)
         {
@@ -171,9 +128,8 @@ addon.config.settings.example = {
                 {value = "option2", label = "dropdownOption2"},
                 {value = "option3", label = "dropdownOption3"}
             },
-            onValueChange = function(selectedValue)
-                addon.info("Dropdown changed to: " .. selectedValue)
-            end
+            onValueChange = addon.exampleDropdownChanged,
+            onLoad = addon.exampleDropdownChanged
         },
         
         -- Slider (persisted to database)
@@ -186,9 +142,8 @@ addon.config.settings.example = {
             max = 100,
             step = 5,
             persistent = true,
-            onValueChange = function(value)
-                addon.info("Slider changed to: " .. value)
-            end
+            onValueChange = addon.exampleSliderChanged,
+            onLoad = addon.exampleSliderChanged
         },
         
         -- Input Box (session-only)
@@ -198,9 +153,7 @@ addon.config.settings.example = {
             tooltip = "exampleInputTooltip",
             default = "Enter text here",
             buttonText = "applyButton",
-            onClick = function(inputText, editBox)
-                addon.info("Input value: " .. inputText)
-            end
+            onClick = addon.exampleInputClicked
         },
         
         -- Button
@@ -208,12 +161,30 @@ addon.config.settings.example = {
             type = "button",
             name = "exampleButton",
             tooltip = "exampleButtonTooltip",
-            onClick = function()
-                addon.info("Example button clicked!")
-            end
+            onClick = addon.exampleButtonClicked
         }
     }
 }
+
+function addon.exampleCheckboxChanged(isChecked)
+    addon.info("Checkbox changed to: " .. tostring(isChecked))
+end
+
+function addon.exampleDropdownChanged(selectedValue)
+    addon.info("Dropdown changed to: " .. selectedValue)
+end
+
+function addon.exampleSliderChanged(value)
+    addon.info("Slider changed to: " .. value)
+end
+
+function addon.exampleInputClicked(inputText, editBox)
+    addon.info("Input value: " .. inputText)
+end
+
+function addon.exampleButtonClicked()
+    addon.info("Example button clicked!")
+end
 ```
 
 ## Accessing Saved Settings
@@ -233,149 +204,58 @@ end
 
 ## Slash Commands
 
-SAdCore automatically creates a slash command for your addon based on your addon name. For example, if your addon is named `MyAddon`, the slash command will be `/myaddon`.
+Your addon automatically gets a slash command: `/youraddonname`
 
-### Default Behavior
+Typing it alone opens settings. Register custom commands with `addon.RegisterSlashCommand(command, callback)`:
 
-When you type the slash command with no arguments (e.g., `/myaddon`), it opens your addon's settings panel.
-
-### Registering Custom Slash Commands
-
-Register custom slash commands using `addon.RegisterSlashCommand(command, callback)`:
-
-**Parameters:**
-- **`command`** - The subcommand name (case-insensitive)
-- **`callback`** - Function to execute when the command is used
-
-**Example:**
 ```lua
 function addon.RegisterFunctions()
-    -- Register /myaddon hello
-    addon.RegisterSlashCommand("hello", function()
-        addon.info("Hello, World!")
-    end)
-    
-    -- Register /myaddon reset
-    addon.RegisterSlashCommand("reset", function()
-        addon.info("Resetting settings...")
-        -- Your reset logic here
-    end)
-    
-    -- Command with parameters
-    addon.RegisterSlashCommand("debug", function(enabled)
-        if enabled == "on" then
-            addon.settings.main.enableDebugging = true
-            addon.info("Debugging enabled")
-        elseif enabled == "off" then
-            addon.settings.main.enableDebugging = false
-            addon.info("Debugging disabled")
-        else
-            addon.info("Usage: /myaddon debug on|off")
-        end
-    end)
+    addon.RegisterSlashCommand("hello", addon.HelloCommand)
+    addon.RegisterSlashCommand("debug", addon.DebugCommand)
+end
+
+function addon.HelloCommand()
+    addon.info("Hello, World!")
+end
+
+function addon.DebugCommand(enabled)
+    if enabled == "on" then
+        addon.settings.main.enableDebugging = true
+        addon.info("Debugging enabled")
+    end
 end
 ```
 
-### Using Slash Commands In-Game
-
-**Basic usage:**
-```
-/myaddon                    -- Opens settings panel
-/myaddon hello              -- Runs the "hello" command
-/myaddon debug on           -- Runs "debug" with parameter "on"
-```
-
-**Built-in commands:**
-- `/myaddon import` - Opens import dialog for settings
-- `/myaddon decode <string>` - Decodes an export string (for debugging)
-
-### Multiple Parameters
-
-When users type multiple parameters, they are split by spaces and passed to your callback function:
-
-```lua
-addon.RegisterSlashCommand("teleport", function(zone, x, y)
-    addon.info(string.format("Teleporting to %s at (%s, %s)", zone or "?", x or "?", y or "?"))
-end)
-
--- Usage: /myaddon teleport Orgrimmar 50 75
-```
+**Built-in:** `/addon import` for importing settings
 
 ## Event Registration
 
-SAdCore provides a simple event registration system that handles frame creation and callback management automatically.
+Register WoW events with `addon.RegisterEvent(eventName, callback)`:
 
-### Registering Events
-
-Register game events using `addon.RegisterEvent(eventName, callback)`:
-
-**Parameters:**
-- **`eventName`** - The WoW event name (e.g., "PLAYER_ENTERING_WORLD", "COMBAT_LOG_EVENT_UNFILTERED")
-- **`callback`** - Function to execute when the event fires. Receives `(event, ...)` where `...` are event-specific parameters
-
-**Example:**
 ```lua
 function addon.RegisterFunctions()
-    -- Register a simple event
-    addon.RegisterEvent("PLAYER_ENTERING_WORLD", function(event)
-        addon.info("Player has entered the world!")
-    end)
-    
-    -- Register event with parameters
-    addon.RegisterEvent("PLAYER_REGEN_DISABLED", function(event)
-        addon.info("Entering combat!")
-    end)
-    
-    addon.RegisterEvent("PLAYER_REGEN_ENABLED", function(event)
-        addon.info("Leaving combat!")
-    end)
-    
-    -- Event with additional parameters
-    addon.RegisterEvent("UNIT_HEALTH", function(event, unitID)
-        if unitID == "player" then
-            local health = UnitHealth("player")
-            local maxHealth = UnitHealthMax("player")
-            addon.debug(string.format("Health: %d/%d", health, maxHealth))
-        end
-    end)
-    
-    -- Chat message event
-    addon.RegisterEvent("CHAT_MSG_SYSTEM", function(event, message)
-        addon.debug("System message: " .. message)
-    end)
+    addon.RegisterEvent("PLAYER_ENTERING_WORLD", addon.OnPlayerEnteringWorld)
+    addon.RegisterEvent("PLAYER_REGEN_DISABLED", addon.OnEnterCombat)
+    addon.RegisterEvent("UNIT_HEALTH", addon.OnUnitHealth)
+end
+
+function addon.OnPlayerEnteringWorld(event)
+    addon.info("Player entered world")
+end
+
+function addon.OnEnterCombat(event)
+    addon.info("Entering combat")
+end
+
+function addon.OnUnitHealth(event, unitID)
+    if unitID == "player" then
+        local health = UnitHealth("player")
+        addon.debug("Health: " .. health)
+    end
 end
 ```
 
-### Event Frame Management
-
-SAdCore automatically creates and manages an event frame for you:
-- The first call to `addon.RegisterEvent()` creates the frame
-- All subsequent events are registered on the same frame
-- Each event has its own callback function
-- No need to manually create frames or manage OnEvent scripts
-
-### Unregistering Events
-
-To unregister an event, access the event frame directly:
-
-```lua
-addon.eventFrame:UnregisterEvent("UNIT_HEALTH")
-```
-
-### Common WoW Events
-
-Here are some frequently used events:
-
-- **`ADDON_LOADED`** - Fires when an addon loads (already used by SAdCore for initialization)
-- **`PLAYER_ENTERING_WORLD`** - Player enters world or reloads UI
-- **`PLAYER_LOGIN`** - Player logs in (fires once per session)
-- **`PLAYER_REGEN_DISABLED`** - Player enters combat
-- **`PLAYER_REGEN_ENABLED`** - Player leaves combat
-- **`UNIT_HEALTH`** - Unit's health changes
-- **`CHAT_MSG_*`** - Various chat events (SYSTEM, SAY, WHISPER, etc.)
-- **`COMBAT_LOG_EVENT_UNFILTERED`** - Combat log events
-
-For a complete list of events, see the [WoW API documentation](https://wowpedia.fandom.com/wiki/Events).
+Unregister: `addon.eventFrame:UnregisterEvent("UNIT_HEALTH")`
 
 ## Logging Functions
 
@@ -385,92 +265,20 @@ For a complete list of events, see the [WoW API documentation](https://wowpedia.
 
 ## Hooks
 
-SAdCore provides Before and After hooks for every function, allowing you to extend functionality without modifying core code.
+Every framework function has Before/After hooks for extending functionality.
 
-**Before Hooks** receive the function's input parameters and MUST return them (potentially modified). This allows you to intercept and transform parameters before the function executes.
-
-**After Hooks** receive the function's return value(s) for observation. They do not need to return anything.
-
-### Initialization Hooks
-- `BeforeInitialize()` → must return nothing / `AfterInitialize(returnValue)`
-- `BeforeLoadConfig()` → must return nothing / `AfterLoadConfig()`
-- `BeforeInitializeCompartmentFunc(compartmentFunc)` → must return compartmentFunc / `AfterInitializeCompartmentFunc(returnValue)`
-- `BeforeInitializeSavedVariables(savedVars, savedVarsPerChar)` → must return savedVars, savedVarsPerChar / `AfterInitializeSavedVariables(returnValue)`
-
-### Registration Hooks
-- `BeforeRegisterEvent(eventName, callback)` → must return eventName, callback / `AfterRegisterEvent(returnValue)`
-- `BeforeRegisterSlashCommand(command, callback)` → must return command, callback / `AfterRegisterSlashCommand(returnValue)`
-- `BeforeCreateSlashCommand()` → must return nothing / `AfterCreateSlashCommand(returnValue)`
-
-### Settings Panel Hooks
-- `BeforeConfigureMainSettings()` → must return nothing / `AfterConfigureMainSettings(returnValue)`
-- `BeforeInitializeSettingsPanel()` → must return nothing / `AfterInitializeSettingsPanel(returnValue)`
-- `BeforeBuildMainSettingsPanel()` → must return nothing / `AfterBuildMainSettingsPanel(panel)`
-- `BeforeBuildChildSettingsPanel(panelKey)` → must return panelKey / `AfterBuildChildSettingsPanel(panel)`
-- `BeforeCreateSettingsPanel(panelKey)` → must return panelKey / `AfterCreateSettingsPanel(panel)`
-- `BeforeRefreshSettingsPanels()` → must return nothing / `AfterRefreshSettingsPanels(returnValue)`
-
-### UI Control Hooks
-- `BeforeAddHeader(parent, yOffset, panelKey, name)` → must return parent, yOffset, panelKey, name / `AfterAddHeader(header, newYOffset)`
-- `BeforeAddCheckbox(parent, yOffset, panelKey, name, tooltip, defaultValue, onValueChange, skipRefresh, persistent)` → must return all 9 params / `AfterAddCheckbox(checkbox, newYOffset)`
-- `BeforeAddDropdown(parent, yOffset, panelKey, name, tooltip, defaultValue, options, onValueChange, skipRefresh, persistent)` → must return all 10 params / `AfterAddDropdown(dropdown, newYOffset)`
-- `BeforeAddSlider(parent, yOffset, panelKey, name, tooltip, defaultValue, minValue, maxValue, step, onValueChange, skipRefresh, persistent)` → must return all 12 params / `AfterAddSlider(slider, newYOffset)`
-- `BeforeAddButton(parent, yOffset, panelKey, name, tooltip, onClick)` → must return parent, yOffset, panelKey, name, tooltip, onClick / `AfterAddButton(button, newYOffset)`
-- `BeforeAddDescription(parent, yOffset, panelKey, name, onClick, color)` → must return parent, yOffset, panelKey, name, onClick, color / `AfterAddDescription(frame, newYOffset)`
-- `BeforeAddInputBox(parent, yOffset, panelKey, name, default, tooltip, highlightText, buttonText, onClick, onValueChange, persistent)` → must return all 11 params / `AfterAddInputBox(control, newYOffset)`
-- `BeforeShowDialog(dialogOptions)` → must return dialogOptions / `AfterShowDialog(dialog)`
-- `BeforeAddControl(parent, yOffset, panelKey, controlConfig)` → must return parent, yOffset, panelKey, controlConfig / `AfterAddControl(control, newYOffset)`
-
-### Utility Function Hooks
-- `BeforeHexToRGB(hex)` → must return hex / `AfterHexToRGB(red, green, blue)`
-- `BeforeOpenSettings()` → must return nothing / `AfterOpenSettings(returnValue)`
-- `BeforeL(key)` → must return key / `AfterL(result)`
-- `BeforeInfo(text)` → must return text / `AfterInfo(returnValue)`
-- `BeforeError(text)` → must return text / `AfterError(returnValue)`
-- `BeforeDebug(text)` → must return text / `AfterDebug(returnValue)`
-- `BeforePrintParams(...)` → must return varargs / `AfterPrintParams(returnValue)`
-- `BeforeDecodeExportString(exportString)` → must return exportString / `AfterDecodeExportString(data)`
-- `BeforeCountTableEntries(tbl)` → must return tbl / `AfterCountTableEntries(count)`
-- `BeforeSerializableCopy(original, exclusions)` → must return original, exclusions / `AfterSerializableCopy(copy)`
-- `BeforeDeepMerge(target, source, exclusions)` → must return target, source, exclusions / `AfterDeepMerge(target)`
-- `BeforeUpdateActiveSettings(useCharacter)` → must return useCharacter / `AfterUpdateActiveSettings(returnValue)`
-- `BeforeRefreshSettingsPanels()` → must return nothing / `AfterRefreshSettingsPanels(returnValue)`
-
-### Import/Export Hooks
-- `BeforeExportSettings()` → must return nothing / `AfterExportSettings(encoded)`
-- `BeforeImportSettings(serializedString)` → must return serializedString / `AfterImportSettings(success)`
-
-### Hook Usage Examples
-
-**Before Hook - Modifying Parameters:**
+**Before hooks** receive and must return parameters (can modify them):
 ```lua
--- Make all localization keys uppercase
 function addon.BeforeL(key)
-    return key:upper()  -- Return the modified parameter
+    return key:upper()  -- Modify parameter
 end
 ```
 
-**Before Hook - Pass-through (no modification):**
+**After hooks** receive return values (observation only):
 ```lua
--- Log but don't modify
-function addon.BeforeInfo(text)
-    -- Do something with the text
-    return text  -- Must still return it unchanged
-end
-```
-
-**After Hook - Observation Only:**
-```lua
--- Log when initialization completes
-function addon.AfterInitialize(success)
-    if success then
-        addon.info("Addon initialized successfully!")
-    end
-    -- After hooks don't need to return anything
-end
-
--- Customize all checkboxes after creation
 function addon.AfterAddCheckbox(checkbox, newYOffset)
-    checkbox:SetAlpha(0.9)
+    checkbox:SetAlpha(0.9)  -- Customize the checkbox
 end
 ```
+
+All available hooks follow the pattern: `Before[FunctionName]` and `After[FunctionName]`. See `SAdCore.lua` for the complete list.

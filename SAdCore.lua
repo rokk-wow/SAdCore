@@ -460,8 +460,8 @@ do  -- User Settings UI
         return header, newYOffset
     end
 
-    function addon.AddCheckbox(parent, yOffset, panelKey, name, tooltip, defaultValue, onValueChange, skipRefresh, persistent)
-        parent, yOffset, panelKey, name, tooltip, defaultValue, onValueChange, skipRefresh, persistent = callHook("BeforeAddCheckbox", parent, yOffset, panelKey, name, tooltip, defaultValue, onValueChange, skipRefresh, persistent)
+    function addon.AddCheckbox(parent, yOffset, panelKey, name, tooltip, defaultValue, onValueChange, skipRefresh, persistent, onLoad)
+        parent, yOffset, panelKey, name, tooltip, defaultValue, onValueChange, skipRefresh, persistent, onLoad = callHook("BeforeAddCheckbox", parent, yOffset, panelKey, name, tooltip, defaultValue, onValueChange, skipRefresh, persistent, onLoad)
         
         local getValue, setValue
         
@@ -514,6 +514,11 @@ do  -- User Settings UI
         end
         checkbox.CheckBox:SetChecked(currentValue)
         
+        -- Call onLoad with the initial saved value
+        if onLoad then
+            onLoad(currentValue)
+        end
+        
         checkbox.CheckBox:SetScript("OnClick", function(checkboxFrame)
             setValue(checkboxFrame:GetChecked())
         end)
@@ -545,12 +550,12 @@ do  -- User Settings UI
         return checkbox, newYOffset
     end
 
-    function addon.AddDropdown(parent, yOffset, panelKey, name, tooltip, defaultValue, options, onValueChange, skipRefresh, persistent)
-        parent, yOffset, panelKey, name, tooltip, defaultValue, options, onValueChange, skipRefresh, persistent = callHook("BeforeAddDropdown", parent, yOffset, panelKey, name, tooltip, defaultValue, options, onValueChange, skipRefresh, persistent)
+    function addon.AddDropdown(parent, yOffset, panelKey, name, tooltip, defaultValue, options, onValueChange, skipRefresh, persistent, onLoad)
+        parent, yOffset, panelKey, name, tooltip, defaultValue, options, onValueChange, skipRefresh, persistent, onLoad = callHook("BeforeAddDropdown", parent, yOffset, panelKey, name, tooltip, defaultValue, options, onValueChange, skipRefresh, persistent, onLoad)
         
         local currentValue = defaultValue
         
-        if persistent ~= false then
+        if persistent == true then
             addon.settings[panelKey] = addon.settings[panelKey] or {}
             if addon.settings[panelKey][name] == nil then
                 addon.settings[panelKey][name] = defaultValue
@@ -583,6 +588,11 @@ do  -- User Settings UI
         end)
         UIDropDownMenu_SetSelectedValue(dropdown.Dropdown, currentValue or defaultValue)
         
+        -- Call onLoad with the initial saved value
+        if onLoad then
+            onLoad(currentValue or defaultValue)
+        end
+        
         if not skipRefresh and persistent == true then
             dropdown.refresh = function()
                 addon.settings[panelKey] = addon.settings[panelKey] or {}
@@ -599,8 +609,8 @@ do  -- User Settings UI
         return dropdown, newYOffset
     end
 
-    function addon.AddSlider(parent, yOffset, panelKey, name, tooltip, defaultValue, minValue, maxValue, step, onValueChange, skipRefresh, persistent)
-        parent, yOffset, panelKey, name, tooltip, defaultValue, minValue, maxValue, step, onValueChange, skipRefresh, persistent = callHook("BeforeAddSlider", parent, yOffset, panelKey, name, tooltip, defaultValue, minValue, maxValue, step, onValueChange, skipRefresh, persistent)
+    function addon.AddSlider(parent, yOffset, panelKey, name, tooltip, defaultValue, minValue, maxValue, step, onValueChange, skipRefresh, persistent, onLoad)
+        parent, yOffset, panelKey, name, tooltip, defaultValue, minValue, maxValue, step, onValueChange, skipRefresh, persistent, onLoad = callHook("BeforeAddSlider", parent, yOffset, panelKey, name, tooltip, defaultValue, minValue, maxValue, step, onValueChange, skipRefresh, persistent, onLoad)
         
         local currentValue = defaultValue
         
@@ -625,6 +635,11 @@ do  -- User Settings UI
             slider.Value:SetText(string.format("%.0f", value))
         end
         updateValue(currentValue or defaultValue)
+        
+        -- Call onLoad with the initial saved value
+        if onLoad then
+            onLoad(currentValue or defaultValue)
+        end
         
         slider.Slider:RegisterCallback(MinimalSliderWithSteppersMixin.Event.OnValueChanged, function(_, value)
             if persistent == true then
@@ -743,8 +758,8 @@ do  -- User Settings UI
         return frame, newYOffset
     end
 
-    function addon.AddInputBox(parent, yOffset, panelKey, name, default, tooltip, highlightText, buttonText, onClick, onValueChange, persistent)
-        parent, yOffset, panelKey, name, default, tooltip, highlightText, buttonText, onClick, onValueChange, persistent = callHook("BeforeAddInputBox", parent, yOffset, panelKey, name, default, tooltip, highlightText, buttonText, onClick, onValueChange, persistent)
+    function addon.AddInputBox(parent, yOffset, panelKey, name, default, tooltip, highlightText, buttonText, onClick, onValueChange, persistent, onLoad)
+        parent, yOffset, panelKey, name, default, tooltip, highlightText, buttonText, onClick, onValueChange, persistent, onLoad = callHook("BeforeAddInputBox", parent, yOffset, panelKey, name, default, tooltip, highlightText, buttonText, onClick, onValueChange, persistent, onLoad)
         
         local control = CreateFrame("Frame", nil, parent, "SAdCoreFrameworkSettingsInputButtonTemplate_v_1_1")
         control:SetPoint("TOPLEFT", addon.config.ui.spacing.controlLeft, yOffset)
@@ -835,6 +850,11 @@ do  -- User Settings UI
             if initialValue then
                 control.EditBox:SetText(initialValue)
                 control.EditBox:SetCursorPosition(0)
+            end
+            
+            -- Call onLoad with the initial saved value
+            if onLoad then
+                onLoad(initialValue)
             end
             
             control.refresh = function()
@@ -958,7 +978,8 @@ do  -- User Settings UI
                 controlConfig.default, 
                 controlConfig.onValueChange,
                 controlConfig.skipRefresh,
-                controlConfig.persistent
+                controlConfig.persistent,
+                controlConfig.onLoad
             )
             callHook("AfterAddControl", control, newYOffset)
             return control, newYOffset
@@ -975,7 +996,8 @@ do  -- User Settings UI
                 controlConfig.options,
                 controlConfig.onValueChange,
                 controlConfig.skipRefresh,
-                controlConfig.persistent
+                controlConfig.persistent,
+                controlConfig.onLoad
             )
             callHook("AfterAddControl", control, newYOffset)
             return control, newYOffset
@@ -994,7 +1016,8 @@ do  -- User Settings UI
                 controlConfig.step,
                 controlConfig.onValueChange,
                 controlConfig.skipRefresh,
-                controlConfig.persistent
+                controlConfig.persistent,
+                controlConfig.onLoad
             )
             callHook("AfterAddControl", control, newYOffset)
             return control, newYOffset
@@ -1038,7 +1061,8 @@ do  -- User Settings UI
                 buttonText,
                 controlConfig.onClick,
                 controlConfig.onValueChange,
-                controlConfig.persistent
+                controlConfig.persistent,
+                controlConfig.onLoad
             )
             callHook("AfterAddControl", control, newYOffset)
             return control, newYOffset
