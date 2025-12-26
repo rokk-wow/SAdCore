@@ -364,14 +364,21 @@ do  -- User Settings UI
         Settings.RegisterAddOnCategory(addon.settingsCategory)
         addon.settingsPanels["main"] = addon.mainSettingsPanel
 
-        for panelKey, panelConfig in pairs(addon.config.settings) do
+        local sortedPanelKeys = {}
+        for panelKey in pairs(addon.config.settings) do
             if panelKey ~= "main" then
-                local childPanel = addon.BuildChildSettingsPanel(panelKey)
-                if childPanel then
-                    local categoryName = panelConfig.title or addon.L(panelKey)
-                    Settings.RegisterCanvasLayoutSubcategory(addon.settingsCategory, childPanel, categoryName)
-                    addon.settingsPanels[panelKey] = childPanel
-                end
+                table.insert(sortedPanelKeys, panelKey)
+            end
+        end
+        table.sort(sortedPanelKeys)
+        
+        for _, panelKey in ipairs(sortedPanelKeys) do
+            local panelConfig = addon.config.settings[panelKey]
+            local childPanel = addon.BuildChildSettingsPanel(panelKey)
+            if childPanel then
+                local categoryName = panelConfig.title or addon.L(panelKey)
+                Settings.RegisterCanvasLayoutSubcategory(addon.settingsCategory, childPanel, categoryName)
+                addon.settingsPanels[panelKey] = childPanel
             end
         end
         
@@ -736,8 +743,8 @@ do  -- User Settings UI
         return frame, newYOffset
     end
 
-    function addon.AddInputBox(parent, yOffset, panelKey, name, default, tooltip, highlightText, buttonText, onClick, persistent)
-        parent, yOffset, panelKey, name, default, tooltip, highlightText, buttonText, onClick, persistent = callHook("BeforeAddInputBox", parent, yOffset, panelKey, name, default, tooltip, highlightText, buttonText, onClick, persistent)
+    function addon.AddInputBox(parent, yOffset, panelKey, name, default, tooltip, highlightText, buttonText, onClick, onValueChange, persistent)
+        parent, yOffset, panelKey, name, default, tooltip, highlightText, buttonText, onClick, onValueChange, persistent = callHook("BeforeAddInputBox", parent, yOffset, panelKey, name, default, tooltip, highlightText, buttonText, onClick, onValueChange, persistent)
         
         local control = CreateFrame("Frame", nil, parent, "SAdCoreFrameworkSettingsInputButtonTemplate_v_1_1")
         control:SetPoint("TOPLEFT", addon.config.ui.spacing.controlLeft, yOffset)
@@ -753,7 +760,20 @@ do  -- User Settings UI
             
             control.EditBox:SetScript("OnTextChanged", function(self, userInput)
                 if userInput then
-                    addon.settings[panelKey][name] = self:GetText()
+                    local newValue = self:GetText()
+                    addon.settings[panelKey][name] = newValue
+                    if onValueChange then
+                        onValueChange(newValue)
+                    end
+                end
+            end)
+        else
+            control.EditBox:SetScript("OnTextChanged", function(self, userInput)
+                if userInput then
+                    local newValue = self:GetText()
+                    if onValueChange then
+                        onValueChange(newValue)
+                    end
                 end
             end)
         end
@@ -1017,6 +1037,7 @@ do  -- User Settings UI
                 controlConfig.highlightText,
                 buttonText,
                 controlConfig.onClick,
+                controlConfig.onValueChange,
                 controlConfig.persistent
             )
             callHook("AfterAddControl", control, newYOffset)

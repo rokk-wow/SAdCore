@@ -61,6 +61,7 @@ All controls support these common properties:
 - **`name`** (required) - Localization key used for both display text and variable storage. If the key is not found in localization, it displays as `[keyName]` to alert the developer
 - **`tooltip`** (optional) - Localization key for tooltip text shown on hover
 - **`persistent`** (optional) - When `true`, the control's value is saved to SavedVariables (either global or per-character). When absent or `false`, the control is session-only and not persisted. Applies to: `checkbox`, `dropdown`, `slider`, `inputBox`
+- **`onValueChange`** (optional) - Callback function that fires immediately when the user changes the control's value. Receives the new value as a parameter. Perfect for applying settings in real-time without requiring a UI reload. Applies to: `checkbox`, `dropdown`, `slider`, `inputBox`
 
 ### Control-Specific Properties
 
@@ -108,7 +109,15 @@ By default, controls are session-only and their values are **not** saved to Save
     name = "enableNotifications",
     tooltip = "enableNotificationsTooltip",
     default = true,
-    persistent = true  -- Explicitly persist this setting
+    persistent = true,  -- Explicitly persist this setting
+    onValueChange = function(isEnabled)
+        -- Apply the setting immediately without needing /reload
+        if isEnabled then
+            addon.StartNotificationSystem()
+        else
+            addon.StopNotificationSystem()
+        end
+    end
 }
 ```
 
@@ -137,7 +146,10 @@ addon.config.settings.example = {
             name = "exampleCheckbox",
             tooltip = "exampleCheckboxTooltip",
             default = true,
-            persistent = true
+            persistent = true,
+            onValueChange = function(isChecked)
+                addon.info("Checkbox changed to: " .. tostring(isChecked))
+            end
         },
         -- Checkbox (session-only - not saved)
         {
@@ -158,7 +170,10 @@ addon.config.settings.example = {
                 {value = "option1", label = "dropdownOption1"},
                 {value = "option2", label = "dropdownOption2"},
                 {value = "option3", label = "dropdownOption3"}
-            }
+            },
+            onValueChange = function(selectedValue)
+                addon.info("Dropdown changed to: " .. selectedValue)
+            end
         },
         
         -- Slider (persisted to database)
@@ -170,7 +185,10 @@ addon.config.settings.example = {
             min = 0,
             max = 100,
             step = 5,
-            persistent = true
+            persistent = true,
+            onValueChange = function(value)
+                addon.info("Slider changed to: " .. value)
+            end
         },
         
         -- Input Box (session-only)
@@ -399,7 +417,7 @@ SAdCore provides Before and After hooks for every function, allowing you to exte
 - `BeforeAddSlider(parent, yOffset, panelKey, name, tooltip, defaultValue, minValue, maxValue, step, onValueChange, skipRefresh, persistent)` → must return all 12 params / `AfterAddSlider(slider, newYOffset)`
 - `BeforeAddButton(parent, yOffset, panelKey, name, tooltip, onClick)` → must return parent, yOffset, panelKey, name, tooltip, onClick / `AfterAddButton(button, newYOffset)`
 - `BeforeAddDescription(parent, yOffset, panelKey, name, onClick, color)` → must return parent, yOffset, panelKey, name, onClick, color / `AfterAddDescription(frame, newYOffset)`
-- `BeforeAddInputBox(parent, yOffset, panelKey, name, default, tooltip, highlightText, buttonText, onClick, persistent)` → must return all 10 params / `AfterAddInputBox(control, newYOffset)`
+- `BeforeAddInputBox(parent, yOffset, panelKey, name, default, tooltip, highlightText, buttonText, onClick, onValueChange, persistent)` → must return all 11 params / `AfterAddInputBox(control, newYOffset)`
 - `BeforeShowDialog(dialogOptions)` → must return dialogOptions / `AfterShowDialog(dialog)`
 - `BeforeAddControl(parent, yOffset, panelKey, controlConfig)` → must return parent, yOffset, panelKey, controlConfig / `AfterAddControl(control, newYOffset)`
 
