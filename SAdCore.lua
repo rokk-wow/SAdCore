@@ -374,7 +374,7 @@ do  -- User Settings UI
             local panelConfig = addon.config.settings[panelKey]
             local childPanel = addon.BuildChildSettingsPanel(panelKey)
             if childPanel then
-                local categoryName = panelConfig.title or addon.L(panelKey)
+                local categoryName = addon.L(panelConfig.title or panelKey)
                 Settings.RegisterCanvasLayoutSubcategory(addon.settingsCategory, childPanel, categoryName)
                 addon.settingsPanels[panelKey] = childPanel
             end
