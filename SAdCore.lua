@@ -267,14 +267,12 @@ do  -- User Settings UI
             {
                 type = "checkbox",
                 name = "logVersion",
-                tooltip = "logVersionTooltip",
                 default = false,
                 persistent = true
             },
             {
                 type = "checkbox",
                 name = "enableDebugging",
-                tooltip = "enableDebuggingTooltip",
                 default = false,
                 persistent = true
             },
@@ -285,7 +283,6 @@ do  -- User Settings UI
             {
                 type = "checkbox",
                 name = "useCharacterSettings",
-                tooltip = "characterSpecificSettingsTooltip",
                 default = false,
                 onValueChange = addon.UpdateActiveSettings,
                 skipRefresh = true
@@ -294,7 +291,6 @@ do  -- User Settings UI
                 type = "inputBox",
                 name = "loadSettings",
                 buttonText = "loadSettingsButton",
-                tooltip = "loadSettingsTooltip",
                 onClick = function(inputText, editBox)
                     addon.ImportSettings(inputText)
                     editBox:SetText("")
@@ -303,7 +299,6 @@ do  -- User Settings UI
             {
                 type = "button",
                 name = "shareSettings",
-                tooltip = "shareSettingsTooltip",
                 onClick = addon.ExportSettings
             },
             {
@@ -463,8 +458,8 @@ do  -- User Settings UI
         return header, newYOffset
     end
 
-    function addon.AddCheckbox(parent, yOffset, panelKey, name, tooltip, defaultValue, onValueChange, skipRefresh, persistent, onLoad)
-        parent, yOffset, panelKey, name, tooltip, defaultValue, onValueChange, skipRefresh, persistent, onLoad = callHook("BeforeAddCheckbox", parent, yOffset, panelKey, name, tooltip, defaultValue, onValueChange, skipRefresh, persistent, onLoad)
+    function addon.AddCheckbox(parent, yOffset, panelKey, name, defaultValue, onValueChange, skipRefresh, persistent, onLoad)
+        parent, yOffset, panelKey, name, defaultValue, onValueChange, skipRefresh, persistent, onLoad = callHook("BeforeAddCheckbox", parent, yOffset, panelKey, name, defaultValue, onValueChange, skipRefresh, persistent, onLoad)
         
         local getValue, setValue
         
@@ -536,11 +531,13 @@ do  -- User Settings UI
             end
         end
         
-        if tooltip then
+        local tooltipKey = name .. "Tooltip"
+        local tooltipText = addon.L(tooltipKey)
+        if tooltipText ~= "[" .. tooltipKey .. "]" then
             checkbox.CheckBox:SetScript("OnEnter", function(self)
                 GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
                 GameTooltip:SetText(addon.L(name), 1, 1, 1)
-                GameTooltip:AddLine(tooltip, nil, nil, nil, true)
+                GameTooltip:AddLine(tooltipText, nil, nil, nil, true)
                 GameTooltip:Show()
             end)
             checkbox.CheckBox:SetScript("OnLeave", function(self)
@@ -553,8 +550,8 @@ do  -- User Settings UI
         return checkbox, newYOffset
     end
 
-    function addon.AddDropdown(parent, yOffset, panelKey, name, tooltip, defaultValue, options, onValueChange, skipRefresh, persistent, onLoad)
-        parent, yOffset, panelKey, name, tooltip, defaultValue, options, onValueChange, skipRefresh, persistent, onLoad = callHook("BeforeAddDropdown", parent, yOffset, panelKey, name, tooltip, defaultValue, options, onValueChange, skipRefresh, persistent, onLoad)
+    function addon.AddDropdown(parent, yOffset, panelKey, name, defaultValue, options, onValueChange, skipRefresh, persistent, onLoad)
+        parent, yOffset, panelKey, name, defaultValue, options, onValueChange, skipRefresh, persistent, onLoad = callHook("BeforeAddDropdown", parent, yOffset, panelKey, name, defaultValue, options, onValueChange, skipRefresh, persistent, onLoad)
         
         local currentValue = defaultValue
         
@@ -612,8 +609,8 @@ do  -- User Settings UI
         return dropdown, newYOffset
     end
 
-    function addon.AddSlider(parent, yOffset, panelKey, name, tooltip, defaultValue, minValue, maxValue, step, onValueChange, skipRefresh, persistent, onLoad)
-        parent, yOffset, panelKey, name, tooltip, defaultValue, minValue, maxValue, step, onValueChange, skipRefresh, persistent, onLoad = callHook("BeforeAddSlider", parent, yOffset, panelKey, name, tooltip, defaultValue, minValue, maxValue, step, onValueChange, skipRefresh, persistent, onLoad)
+    function addon.AddSlider(parent, yOffset, panelKey, name, defaultValue, minValue, maxValue, step, onValueChange, skipRefresh, persistent, onLoad)
+        parent, yOffset, panelKey, name, defaultValue, minValue, maxValue, step, onValueChange, skipRefresh, persistent, onLoad = callHook("BeforeAddSlider", parent, yOffset, panelKey, name, defaultValue, minValue, maxValue, step, onValueChange, skipRefresh, persistent, onLoad)
         
         local currentValue = defaultValue
         
@@ -666,11 +663,13 @@ do  -- User Settings UI
             end
         end
         
-        if tooltip then
+        local tooltipKey = name .. "Tooltip"
+        local tooltipText = addon.L(tooltipKey)
+        if tooltipText ~= "[" .. tooltipKey .. "]" then
             slider.Slider:SetScript("OnEnter", function(self)
                 GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
                 GameTooltip:SetText(addon.L(name), 1, 1, 1)
-                GameTooltip:AddLine(tooltip, nil, nil, nil, true)
+                GameTooltip:AddLine(tooltipText, nil, nil, nil, true)
                 GameTooltip:Show()
             end)
             slider.Slider:SetScript("OnLeave", function(self)
@@ -683,8 +682,8 @@ do  -- User Settings UI
         return slider, newYOffset
     end
 
-    function addon.AddButton(parent, yOffset, panelKey, name, tooltip, onClick)
-        parent, yOffset, panelKey, name, tooltip, onClick = callHook("BeforeAddButton", parent, yOffset, panelKey, name, tooltip, onClick)
+    function addon.AddButton(parent, yOffset, panelKey, name, onClick)
+        parent, yOffset, panelKey, name, onClick = callHook("BeforeAddButton", parent, yOffset, panelKey, name, onClick)
         
         local button = CreateFrame("Frame", nil, parent, "SAdCoreFrameworkSettingsButtonTemplate_v_1_1")
         button:SetPoint("TOPLEFT", addon.config.ui.spacing.contentLeft, yOffset)
@@ -697,11 +696,13 @@ do  -- User Settings UI
             end
         end)
         
-        if tooltip then
+        local tooltipKey = name .. "Tooltip"
+        local tooltipText = addon.L(tooltipKey)
+        if tooltipText ~= "[" .. tooltipKey .. "]" then
             button.Button:SetScript("OnEnter", function(self)
                 GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
                 GameTooltip:SetText(addon.L(name), 1, 1, 1)
-                GameTooltip:AddLine(tooltip, nil, nil, nil, true)
+                GameTooltip:AddLine(tooltipText, nil, nil, nil, true)
                 GameTooltip:Show()
             end)
             button.Button:SetScript("OnLeave", function(self)
@@ -761,8 +762,8 @@ do  -- User Settings UI
         return frame, newYOffset
     end
 
-    function addon.AddInputBox(parent, yOffset, panelKey, name, default, tooltip, highlightText, buttonText, onClick, onValueChange, persistent, onLoad)
-        parent, yOffset, panelKey, name, default, tooltip, highlightText, buttonText, onClick, onValueChange, persistent, onLoad = callHook("BeforeAddInputBox", parent, yOffset, panelKey, name, default, tooltip, highlightText, buttonText, onClick, onValueChange, persistent, onLoad)
+    function addon.AddInputBox(parent, yOffset, panelKey, name, default, highlightText, buttonText, onClick, onValueChange, persistent, onLoad)
+        parent, yOffset, panelKey, name, default, highlightText, buttonText, onClick, onValueChange, persistent, onLoad = callHook("BeforeAddInputBox", parent, yOffset, panelKey, name, default, highlightText, buttonText, onClick, onValueChange, persistent, onLoad)
         
         local control = CreateFrame("Frame", nil, parent, "SAdCoreFrameworkSettingsInputButtonTemplate_v_1_1")
         control:SetPoint("TOPLEFT", addon.config.ui.spacing.controlLeft, yOffset)
@@ -806,11 +807,13 @@ do  -- User Settings UI
                 end)
             end
             
-            if tooltip then
+            local tooltipKey = name .. "Tooltip"
+            local tooltipText = addon.L(tooltipKey)
+            if tooltipText ~= "[" .. tooltipKey .. "]" then
                 control.Button:SetScript("OnEnter", function(self)
                     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
                     GameTooltip:SetText(buttonText, 1, 1, 1)
-                    GameTooltip:AddLine(tooltip, nil, nil, nil, true)
+                    GameTooltip:AddLine(tooltipText, nil, nil, nil, true)
                     GameTooltip:Show()
                 end)
                 control.Button:SetScript("OnLeave", function(self)
@@ -971,13 +974,11 @@ do  -- User Settings UI
             return control, newYOffset
             
         elseif controlType == "checkbox" then
-            local tooltip = controlConfig.tooltip and addon.L(controlConfig.tooltip) or nil
             local control, newYOffset = addon.AddCheckbox(
                 parent, 
                 yOffset, 
                 panelKey, 
                 controlConfig.name,
-                tooltip, 
                 controlConfig.default, 
                 controlConfig.onValueChange,
                 controlConfig.skipRefresh,
@@ -988,13 +989,11 @@ do  -- User Settings UI
             return control, newYOffset
             
         elseif controlType == "dropdown" then
-            local tooltip = controlConfig.tooltip and addon.L(controlConfig.tooltip) or nil
             local control, newYOffset = addon.AddDropdown(
                 parent, 
                 yOffset, 
                 panelKey, 
                 controlConfig.name,
-                tooltip, 
                 controlConfig.default, 
                 controlConfig.options,
                 controlConfig.onValueChange,
@@ -1006,13 +1005,11 @@ do  -- User Settings UI
             return control, newYOffset
             
         elseif controlType == "slider" then
-            local tooltip = controlConfig.tooltip and addon.L(controlConfig.tooltip) or nil
             local control, newYOffset = addon.AddSlider(
                 parent, 
                 yOffset, 
                 panelKey, 
                 controlConfig.name,
-                tooltip, 
                 controlConfig.default, 
                 controlConfig.min, 
                 controlConfig.max, 
@@ -1026,13 +1023,11 @@ do  -- User Settings UI
             return control, newYOffset
             
         elseif controlType == "button" then
-            local tooltip = controlConfig.tooltip and addon.L(controlConfig.tooltip) or nil
             local control, newYOffset = addon.AddButton(
                 parent, 
                 yOffset, 
                 panelKey, 
                 controlConfig.name,
-                tooltip, 
                 controlConfig.onClick
             )
             callHook("AfterAddControl", control, newYOffset)
@@ -1052,14 +1047,12 @@ do  -- User Settings UI
             
         elseif controlType == "inputBox" then
             local buttonText = controlConfig.buttonText and addon.L(controlConfig.buttonText) or nil
-            local tooltip = controlConfig.tooltip and addon.L(controlConfig.tooltip) or nil
             local control, newYOffset = addon.AddInputBox(
                 parent, 
                 yOffset, 
                 panelKey, 
                 controlConfig.name,
                 controlConfig.default,
-                tooltip,
                 controlConfig.highlightText,
                 buttonText,
                 controlConfig.onClick,

@@ -42,10 +42,13 @@ All controls support these common properties:
 
 - **`type`** (required) - The control type: `"header"`, `"description"`, `"checkbox"`, `"dropdown"`, `"slider"`, `"inputBox"`, or `"button"`
 - **`name`** (required) - Localization key used for both display text and variable storage. If the key is not found in localization, it displays as `[keyName]` to alert the developer
-- **`tooltip`** (optional) - Localization key for tooltip text shown on hover
 - **`persistent`** (optional) - When `true`, the control's value is saved to SavedVariables (either global or per-character). When absent or `false`, the control is session-only and not persisted. Applies to: `checkbox`, `dropdown`, `slider`, `inputBox`
 - **`onValueChange`** (optional) - Callback function that fires immediately when the user changes the control's value. Receives the new value as a parameter. Perfect for applying settings in real-time without requiring a UI reload. Applies to: `checkbox`, `dropdown`, `slider`, `inputBox`
 - **`onLoad`** (optional) - Callback function that fires when the game starts or the addon loads. Receives the saved value as a parameter. Applies to: `checkbox`, `dropdown`, `slider`, `inputBox`
+
+### Automatic Tooltips
+
+To add a tooltip, define a localization key with the control's name + `"Tooltip"` (e.g., `"exampleCheckboxTooltip"` for `name = "exampleCheckbox"`).
 
 ### Control-Specific Properties
 
@@ -69,13 +72,14 @@ end
 {
     type = "checkbox",
     name = "enableNotifications",
-    tooltip = "enableNotificationsTooltip",
     default = true,
     persistent = true,
     onValueChange = addon.EnableNotificationSystem,
     onLoad = addon.EnableNotificationSystem
 }
 ```
+
+**Note:** A tooltip will automatically appear if you add `"enableNotificationsTooltip"` to your localization file.
 
 Use **onValueChange** when the user changes a setting. Use **onLoad** when the addon loads. Often you'll use both.
 
@@ -102,7 +106,6 @@ addon.config.settings.example = {
         {
             type = "checkbox",
             name = "exampleCheckbox",
-            tooltip = "exampleCheckboxTooltip",
             default = true,
             persistent = true,
             onValueChange = addon.exampleCheckboxChanged,
@@ -112,7 +115,6 @@ addon.config.settings.example = {
         {
             type = "checkbox",
             name = "tempCheckbox",
-            tooltip = "tempCheckboxTooltip",
             default = false
         },
         
@@ -120,7 +122,6 @@ addon.config.settings.example = {
         {
             type = "dropdown",
             name = "exampleDropdown",
-            tooltip = "exampleDropdownTooltip",
             default = "option2",
             persistent = true,
             options = {
@@ -136,7 +137,6 @@ addon.config.settings.example = {
         {
             type = "slider",
             name = "exampleSlider",
-            tooltip = "exampleSliderTooltip",
             default = 50,
             min = 0,
             max = 100,
@@ -150,7 +150,6 @@ addon.config.settings.example = {
         {
             type = "inputBox",
             name = "exampleInput",
-            tooltip = "exampleInputTooltip",
             default = "Enter text here",
             buttonText = "applyButton",
             onClick = addon.exampleInputClicked
@@ -160,7 +159,6 @@ addon.config.settings.example = {
         {
             type = "button",
             name = "exampleButton",
-            tooltip = "exampleButtonTooltip",
             onClick = addon.exampleButtonClicked
         }
     }

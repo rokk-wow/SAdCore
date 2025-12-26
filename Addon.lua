@@ -48,7 +48,6 @@ function addon.LoadConfig()
             {
                 type = "checkbox",
                 name = "exampleCheckbox",
-                tooltip = "exampleCheckboxTooltip",
                 default = true,
                 persistent = true,
                 onValueChange = addon.exampleCheckbox,
@@ -74,7 +73,6 @@ function addon.LoadConfig()
             {
                 type = "checkbox",
                 name = "exampleCheckbox2",
-                tooltip = "exampleCheckbox2Tooltip",
                 default = true,
                 persistent = true,
                 onValueChange = addon.exampleCheckbox2,
