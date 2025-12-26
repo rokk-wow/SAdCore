@@ -103,9 +103,6 @@ do  -- Initialization
             slider = {
                 width = 205
             },
-            colors = {
-                description = "#BBBBBB"
-            },
             backdrop = {
                 edgeSize = 2,
                 insets = { left = 2, right = 2, top = 2, bottom = 2 }
@@ -121,8 +118,6 @@ do  -- Initialization
         addon.LibCompress = LibStub("LibCompress")
        
         addon.CreateSlashCommand()
-        addon.RegisterSlashCommand("import", addon.ImportSettings)
-        addon.RegisterSlashCommand("decode", addon.DecodeExportString)
         addon.InitializeSettingsPanel()
         
         if addon.RegisterFunctions then
@@ -304,12 +299,10 @@ do  -- User Settings UI
             {
                 type = "description",
                 name = "tagline",
-                color = addon.config.ui.colors.description
             },
             {
                 type = "description",
                 name = "author",
-                color = addon.config.ui.colors.description,
                 onClick = function()
                     addon.ShowDialog({
                         title = "authorTitle",
@@ -715,8 +708,8 @@ do  -- User Settings UI
         return button, newYOffset
     end
 
-    function addon.AddDescription(parent, yOffset, panelKey, name, onClick, color)
-        parent, yOffset, panelKey, name, onClick, color = callHook("BeforeAddDescription", parent, yOffset, panelKey, name, onClick, color)
+    function addon.AddDescription(parent, yOffset, panelKey, name, onClick)
+        parent, yOffset, panelKey, name, onClick = callHook("BeforeAddDescription", parent, yOffset, panelKey, name, onClick)
         
         local frame = CreateFrame("Frame", nil, parent)
         frame:SetPoint("TOPLEFT", addon.config.ui.spacing.controlLeft, yOffset)
@@ -729,12 +722,6 @@ do  -- User Settings UI
         fontString:SetJustifyH("LEFT")
         fontString:SetJustifyV("TOP")
         fontString:SetWordWrap(true)
-        
-        local red, green, blue
-        if color then
-            red, green, blue = addon.HexToRGB(color)
-            fontString:SetTextColor(red, green, blue, 1)
-        end
         fontString:SetText(addon.L(name))
         
         local stringHeight = fontString:GetStringHeight()
@@ -749,11 +736,7 @@ do  -- User Settings UI
                 fontString:SetTextColor(1, 0.82, 0, 1)
             end)
             frame:SetScript("OnLeave", function(self)
-                if color then
-                    fontString:SetTextColor(red, green, blue, 1)
-                else
-                    fontString:SetTextColor(1.0, 0.82, 0, 1)
-                end
+                fontString:SetTextColor(1.0, 0.82, 0, 1)
             end)
         end
         
@@ -1039,8 +1022,7 @@ do  -- User Settings UI
                 yOffset, 
                 panelKey, 
                 controlConfig.name,
-                controlConfig.onClick,
-                controlConfig.color
+                controlConfig.onClick
             )
             callHook("AfterAddControl", control, newYOffset)
             return control, newYOffset
@@ -1073,25 +1055,6 @@ end
 
 
 do  -- Utility Functions
-
-    function addon.HexToRGB(hex)
-        hex = callHook("BeforeHexToRGB", hex)
-        
-        if not hex or type(hex) ~= "string" then 
-            callHook("AfterHexToRGB", 1, 1, 1)
-            return 1, 1, 1
-        end
-        hex = hex:gsub("#", "")
-        if #hex == 6 then
-            local red = tonumber(hex:sub(1, 2), 16) / 255
-            local green = tonumber(hex:sub(3, 4), 16) / 255
-            local blue = tonumber(hex:sub(5, 6), 16) / 255
-            callHook("AfterHexToRGB", red, green, blue)
-            return red, green, blue
-        end
-        callHook("AfterHexToRGB", 1, 1, 1)
-        return 1, 1, 1
-    end
 
     function addon.OpenSettings()
         callHook("BeforeOpenSettings")
@@ -1161,114 +1124,6 @@ do  -- Utility Functions
         return returnValue
     end
 
-    function addon.PrintParams(...)
-        callHook("BeforePrintParams", ...)
-        
-        local paramCount = select("#", ...)
-        addon.info("There are " .. paramCount .. " parameter(s):")
-        
-        for i = 1, paramCount do
-            local param = select(i, ...)
-            local paramType = type(param)
-            local paramValue
-            
-            if paramType == "table" then
-                paramValue = "table with " .. addon.CountTableEntries(param) .. " entries"
-            elseif paramType == "string" then
-                paramValue = "\"" .. param .. "\""
-            elseif paramType == "nil" then
-                paramValue = "nil"
-            elseif paramType == "boolean" then
-                paramValue = tostring(param)
-            elseif paramType == "number" then
-                paramValue = tostring(param)
-            elseif paramType == "function" then
-                paramValue = "function"
-            else
-                paramValue = tostring(param)
-            end
-            
-            addon.info("  [" .. i .. "] " .. paramType .. ": " .. paramValue)
-        end
-        
-        local returnValue = true
-        callHook("AfterPrintParams", returnValue)
-        return returnValue
-    end
-
-    function addon.DecodeExportString(exportString)
-        exportString = callHook("BeforeDecodeExportString", exportString)
-        
-        if not exportString or exportString == "" then
-            addon.error("No export string provided")
-            callHook("AfterDecodeExportString", false)
-            return false
-        end
-        
-        local LibSerialize = addon.LibSerialize
-        local LibCompress = addon.LibCompress
-        
-        addon.info("=== Decoding Export String ===")
-        addon.info("String length: " .. #exportString .. " characters")
-        
-        local decoded = LibCompress:Decode(exportString)
-        if not decoded then
-            addon.error("Decode failed")
-            callHook("AfterDecodeExportString", false)
-            return false
-        end
-        addon.info("Decoded to " .. #decoded .. " bytes")
-        
-        local success, data = LibSerialize:Deserialize(decoded)
-        if not success then
-            addon.error("Deserialize failed: " .. tostring(data))
-            callHook("AfterDecodeExportString", false)
-            return false
-        end
-        
-        if type(data) == "table" then
-            addon.info("Addon: " .. tostring(data.addon))
-            addon.info("Version: " .. tostring(data.version))
-            addon.info("SAdCore Version: " .. tostring(data.sadCoreVersion))
-            
-            if data.settings then
-                addon.info("Settings panels:")
-                for panelKey, panelData in pairs(data.settings) do
-                    if type(panelData) == "table" then
-                        local fieldCount = addon.CountTableEntries(panelData)
-                        addon.info("  " .. panelKey .. ": " .. fieldCount .. " fields")
-                        for fieldName, fieldValue in pairs(panelData) do
-                            local valueStr = type(fieldValue) == "table" and "{table}" or tostring(fieldValue)
-                            addon.info("    " .. fieldName .. " = " .. valueStr)
-                        end
-                    end
-                end
-            end
-        else
-            addon.error("Unexpected data type: " .. type(data))
-        end
-        
-        callHook("AfterDecodeExportString", data)
-        return data
-    end
-
-    function addon.CountTableEntries(tbl)
-        tbl = callHook("BeforeCountTableEntries", tbl)
-        
-        if type(tbl) ~= "table" then
-            callHook("AfterCountTableEntries", 0)
-            return 0
-        end
-        
-        local count = 0
-        for _ in pairs(tbl) do
-            count = count + 1
-        end
-        
-        callHook("AfterCountTableEntries", count)
-        return count
-    end
-
     function addon.RefreshSettingsPanels()
         callHook("BeforeRefreshSettingsPanels")
         
@@ -1287,65 +1142,6 @@ do  -- Utility Functions
         return returnValue
     end
 
-    function addon.SerializableCopy(original, exclusions)
-        original, exclusions = callHook("BeforeSerializableCopy", original, exclusions)
-        
-        exclusions = exclusions or {}
-        
-        if type(original) ~= "table" then
-            return original
-        end
-        
-        local copy = {}
-        for key, value in pairs(original) do
-            local shouldExclude = exclusions[key]
-            
-            if not shouldExclude and addon.config.settings then
-                for panelKey, panelConfig in pairs(addon.config.settings) do
-                    if panelConfig.controls then
-                        for _, controlConfig in ipairs(panelConfig.controls) do
-                            if controlConfig.name == key and controlConfig.persistent ~= true then
-                                shouldExclude = true
-                                break
-                            end
-                        end
-                    end
-                    if shouldExclude then break end
-                end
-            end
-            
-            if not shouldExclude then
-                if type(value) == "table" then
-                    copy[key] = addon.SerializableCopy(value, exclusions)
-                else
-                    copy[key] = value
-                end
-            end
-        end
-        
-        callHook("AfterSerializableCopy", copy)
-        return copy
-    end
-
-    function addon.DeepMerge(target, source, exclusions)
-        target, source, exclusions = callHook("BeforeDeepMerge", target, source, exclusions)
-        
-        exclusions = exclusions or {}
-        
-        for key, value in pairs(source) do
-            if not exclusions[key] then
-                if type(value) == "table" and type(target[key]) == "table" then
-                    addon.DeepMerge(target[key], value, exclusions)
-                else
-                    target[key] = value
-                end
-            end
-        end
-        
-        callHook("AfterDeepMerge", target)
-        return target
-    end
-
     function addon.UpdateActiveSettings(useCharacter)
         useCharacter = callHook("BeforeUpdateActiveSettings", useCharacter)
         addon.settings = useCharacter and addon.settingsChar or addon.settingsGlobal
@@ -1361,13 +1157,11 @@ do  -- Utility Functions
     function addon.ExportSettings()
         callHook("BeforeExportSettings")
         
-        local settingsCopy = addon.SerializableCopy(addon.settings)
-        
         local exportData = {
             addon = addonName,
             version = tostring(addon.config.version),
             sadCoreVersion = tostring(addon.sadCore.version),
-            settings = settingsCopy
+            settings = addon.settings
         }
 
         local LibSerialize = addon.LibSerialize
@@ -1471,11 +1265,7 @@ do  -- Utility Functions
         end
         
         for key, value in pairs(importedSettings) do
-            if type(value) == "table" then
-                addon.settings[key] = addon.SerializableCopy(value)
-            else
-                addon.settings[key] = value
-            end
+            addon.settings[key] = value
         end
         
         addon.info(addon.L("importSuccess"))
