@@ -1153,7 +1153,7 @@ do  -- Utility Functions
         
         if type(Settings) == "table" and type(Settings.OpenToCategory) == "function" then
             if addon.settingsCategory then
-                if addon.apiVersion < 110100 then
+                if addon.apiVersion < 120000 then
                     Settings.OpenToCategory(addon.settingsCategory)
                 end
                 if addon.settingsCategory.ID then
