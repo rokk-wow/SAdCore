@@ -22,11 +22,11 @@ local addonName, addon = ...
 --   Intuitive   - If a user can't remember where they saw a particular configuration setting, it's probably wrong
 --   Relevant    - If a configuration setting doesn't directly relate to the name of the addon, it's probably wrong
 --   Respectful  - If a users game setting is changed just by installing the addon, it's probably wrong
---   Clear       - Checkboxes should enable, not disable ("Show Map", not "Hide Map")
+--   Affirmative - Logic should always enable, not disable ("Show Map", not "Hide Map")
 --   Robust      - All code exists inside addon functions. The only global code is registering the ADDON_LOADED event
 
 function addon.LoadConfig()
-    addon.config.version = "1.1"
+    addon.config.version = "1.0"
 
     addon.config.toc = {
         -- Values in .toc file must match these values exactly. They must be unique from any other addon.
@@ -37,7 +37,7 @@ function addon.LoadConfig()
 
     -- Example - Add Settings to Main Settings Panel
     addon.config.settings.main = {
-        title = "My Addon Settings",
+        title = "myAddonSettingsTitle",
         controls = {
             -- Header
             {

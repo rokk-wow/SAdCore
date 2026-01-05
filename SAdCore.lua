@@ -320,7 +320,7 @@ do  -- User Settings UI
         }
 
         local main = {}
-        main.title = (addon.config.settings.main and addon.config.settings.main.title) or addon.L(addonName)
+        main.title = (addon.config.settings.main and addon.config.settings.main.title) or addonName
         main.controls = {}
         
         for _, control in ipairs(headerControls) do
@@ -431,8 +431,27 @@ do  -- User Settings UI
     function addon.CreateSettingsPanel(panelKey)
         panelKey = callHook("BeforeCreateSettingsPanel", panelKey)
         
-        local panel = CreateFrame("Frame", addonName .. "_" .. panelKey .. "_Panel", nil, "SAdCoreFrameworkSettingsPanelTemplate_v_1_1")
+        local panel = CreateFrame("Frame", addonName .. "_" .. panelKey .. "_Panel")
         panel.panelKey = panelKey
+        
+        panel.Title = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightHuge")
+        panel.Title:SetPoint("TOPLEFT", 7, -22)
+        panel.Title:SetJustifyH("LEFT")
+        panel.Title:SetTextColor(1, 1, 1)
+        
+        panel.HorizontalLine = panel:CreateTexture(nil, "ARTWORK")
+        panel.HorizontalLine:SetSize(0, 1)
+        panel.HorizontalLine:SetPoint("TOPLEFT", panel.Title, "BOTTOMLEFT", 0, -8)
+        panel.HorizontalLine:SetPoint("TOPRIGHT", -30, -63)
+        panel.HorizontalLine:SetColorTexture(0.25, 0.25, 0.25, 1)
+        
+        panel.ScrollFrame = CreateFrame("ScrollFrame", nil, panel, "UIPanelScrollFrameTemplate")
+        panel.ScrollFrame:SetPoint("TOPLEFT", 0, -28)
+        panel.ScrollFrame:SetPoint("BOTTOMRIGHT", -30, 10)
+        
+        panel.ScrollFrame.Content = CreateFrame("Frame", nil, panel.ScrollFrame)
+        panel.ScrollFrame.Content:SetSize(600, 1)
+        panel.ScrollFrame:SetScrollChild(panel.ScrollFrame.Content)
         
         callHook("AfterCreateSettingsPanel", panel)
         return panel
@@ -441,9 +460,15 @@ do  -- User Settings UI
     function addon.AddHeader(parent, yOffset, panelKey, name)
         parent, yOffset, panelKey, name = callHook("BeforeAddHeader", parent, yOffset, panelKey, name)
         
-        local header = CreateFrame("Frame", nil, parent, "SAdCoreFrameworkSettingsHeaderTemplate_v_1_1")
+        local header = CreateFrame("Frame", nil, parent)
+        header:SetHeight(50)
         header:SetPoint("TOPLEFT", addon.config.ui.spacing.contentLeft, yOffset)
         header:SetPoint("TOPRIGHT", addon.config.ui.spacing.contentRight, yOffset)
+        
+        header.Title = header:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
+        header.Title:SetPoint("BOTTOMLEFT", 7, 4)
+        header.Title:SetJustifyH("LEFT")
+        header.Title:SetJustifyV("BOTTOM")
         header.Title:SetText(addon.L(name))
         
         local newYOffset = yOffset - addon.config.ui.spacing.headerHeight
@@ -494,10 +519,28 @@ do  -- User Settings UI
             end
         end
         
-        local checkbox = CreateFrame("Frame", nil, parent, "SAdCoreFrameworkSettingsCheckboxTemplate_v_1_1")
+        local checkbox = CreateFrame("Frame", nil, parent)
+        checkbox:SetHeight(32)
         checkbox:SetPoint("TOPLEFT", addon.config.ui.spacing.controlLeft, yOffset)
         checkbox:SetPoint("TOPRIGHT", addon.config.ui.spacing.controlRight, yOffset)
+        
+        checkbox.Text = checkbox:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        checkbox.Text:SetSize(205, 0)
+        checkbox.Text:SetPoint("LEFT", 17, 0)
+        checkbox.Text:SetJustifyH("LEFT")
+        checkbox.Text:SetWordWrap(false)
         checkbox.Text:SetText(addon.L(name))
+        
+        checkbox.CheckBox = CreateFrame("CheckButton", nil, checkbox)
+        checkbox.CheckBox:SetSize(26, 26)
+        checkbox.CheckBox:SetPoint("LEFT", 215, 0)
+        checkbox.CheckBox:SetMotionScriptsWhileDisabled(true)
+        checkbox.CheckBox:SetNormalAtlas("checkbox-minimal")
+        checkbox.CheckBox:SetPushedAtlas("checkbox-minimal")
+        checkbox.CheckBox:SetCheckedTexture("Interface\\Buttons\\UI-CheckBox-Check")
+        checkbox.CheckBox:GetCheckedTexture():SetAtlas("checkmark-minimal")
+        checkbox.CheckBox:SetDisabledCheckedTexture("Interface\\Buttons\\UI-CheckBox-Check-Disabled")
+        checkbox.CheckBox:GetDisabledCheckedTexture():SetAtlas("checkmark-minimal-disabled")
         
         local currentValue = getValue()
         if currentValue == nil then
@@ -505,7 +548,6 @@ do  -- User Settings UI
         end
         checkbox.CheckBox:SetChecked(currentValue)
         
-        -- Call onLoad with the initial saved value
         if onLoad then
             onLoad(currentValue)
         end
@@ -556,10 +598,20 @@ do  -- User Settings UI
             currentValue = addon.settings[panelKey][name]
         end
         
-        local dropdown = CreateFrame("Frame", nil, parent, "SAdCoreFrameworkSettingsDropdownTemplate_v_1_1")
+        local dropdown = CreateFrame("Frame", nil, parent)
+        dropdown:SetHeight(32)
         dropdown:SetPoint("TOPLEFT", addon.config.ui.spacing.controlLeft, yOffset)
         dropdown:SetPoint("TOPRIGHT", addon.config.ui.spacing.controlRight, yOffset)
+        
+        dropdown.Text = dropdown:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        dropdown.Text:SetSize(205, 0)
+        dropdown.Text:SetPoint("LEFT", 17, 0)
+        dropdown.Text:SetJustifyH("LEFT")
+        dropdown.Text:SetWordWrap(false)
         dropdown.Text:SetText(addon.L(name))
+        
+        dropdown.Dropdown = CreateFrame("Frame", nil, dropdown, "UIDropDownMenuTemplate")
+        dropdown.Dropdown:SetPoint("LEFT", 200, 3)
         UIDropDownMenu_SetWidth(dropdown.Dropdown, addon.config.ui.dropdown.width)
         UIDropDownMenu_Initialize(dropdown.Dropdown, function(dropdownFrame, level)
             for _, option in ipairs(options) do
@@ -581,7 +633,6 @@ do  -- User Settings UI
         end)
         UIDropDownMenu_SetSelectedValue(dropdown.Dropdown, currentValue or defaultValue)
         
-        -- Call onLoad with the initial saved value
         if onLoad then
             onLoad(currentValue or defaultValue)
         end
@@ -615,10 +666,25 @@ do  -- User Settings UI
             currentValue = addon.settings[panelKey][name]
         end
         
-        local slider = CreateFrame("Frame", nil, parent, "SAdCoreFrameworkSettingsSliderTemplate_v_1_1")
+        local slider = CreateFrame("Frame", nil, parent)
+        slider:SetHeight(32)
         slider:SetPoint("TOPLEFT", addon.config.ui.spacing.controlLeft, yOffset)
         slider:SetPoint("TOPRIGHT", addon.config.ui.spacing.controlRight, yOffset)
+        
+        slider.Text = slider:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        slider.Text:SetSize(205, 0)
+        slider.Text:SetPoint("LEFT", 17, 0)
+        slider.Text:SetJustifyH("LEFT")
+        slider.Text:SetWordWrap(false)
         slider.Text:SetText(addon.L(name))
+        
+        slider.Value = slider:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        slider.Value:SetPoint("LEFT", 430, 0)
+        slider.Value:SetJustifyH("LEFT")
+        
+        slider.Slider = CreateFrame("Slider", nil, slider, "MinimalSliderWithSteppersTemplate")
+        slider.Slider:SetSize(205, 22)
+        slider.Slider:SetPoint("LEFT", 215, 0)
         
         local steps = (maxValue - minValue) / step
         slider.Slider:Init(currentValue or defaultValue, minValue, maxValue, steps)
@@ -629,7 +695,6 @@ do  -- User Settings UI
         end
         updateValue(currentValue or defaultValue)
         
-        -- Call onLoad with the initial saved value
         if onLoad then
             onLoad(currentValue or defaultValue)
         end
@@ -678,9 +743,14 @@ do  -- User Settings UI
     function addon.AddButton(parent, yOffset, panelKey, name, onClick)
         parent, yOffset, panelKey, name, onClick = callHook("BeforeAddButton", parent, yOffset, panelKey, name, onClick)
         
-        local button = CreateFrame("Frame", nil, parent, "SAdCoreFrameworkSettingsButtonTemplate_v_1_1")
+        local button = CreateFrame("Frame", nil, parent)
+        button:SetHeight(40)
         button:SetPoint("TOPLEFT", addon.config.ui.spacing.contentLeft, yOffset)
         button:SetPoint("TOPRIGHT", addon.config.ui.spacing.contentRight, yOffset)
+        
+        button.Button = CreateFrame("Button", nil, button, "UIPanelButtonTemplate")
+        button.Button:SetSize(120, 22)
+        button.Button:SetPoint("LEFT", 35, 0)
         button.Button:SetText(addon.L(name))
         
         button.Button:SetScript("OnClick", function(self)
@@ -748,10 +818,32 @@ do  -- User Settings UI
     function addon.AddInputBox(parent, yOffset, panelKey, name, default, highlightText, buttonText, onClick, onValueChange, persistent, onLoad)
         parent, yOffset, panelKey, name, default, highlightText, buttonText, onClick, onValueChange, persistent, onLoad = callHook("BeforeAddInputBox", parent, yOffset, panelKey, name, default, highlightText, buttonText, onClick, onValueChange, persistent, onLoad)
         
-        local control = CreateFrame("Frame", nil, parent, "SAdCoreFrameworkSettingsInputButtonTemplate_v_1_1")
+        local control = CreateFrame("Frame", nil, parent)
+        control:SetHeight(32)
         control:SetPoint("TOPLEFT", addon.config.ui.spacing.controlLeft, yOffset)
         control:SetPoint("TOPRIGHT", addon.config.ui.spacing.controlRight, yOffset)
-        control.Text:SetText(addon.L(name))        
+        
+        control.Text = control:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        control.Text:SetSize(205, 0)
+        control.Text:SetPoint("LEFT", 17, 0)
+        control.Text:SetJustifyH("LEFT")
+        control.Text:SetWordWrap(false)
+        control.Text:SetText(addon.L(name))
+        
+        control.EditBox = CreateFrame("EditBox", nil, control)
+        control.EditBox:SetSize(220, 22)
+        control.EditBox:SetPoint("LEFT", 218, 0)
+        control.EditBox:SetAutoFocus(false)
+        control.EditBox:SetFontObject("ChatFontNormal")
+        
+        control.EditBox.Background = control.EditBox:CreateTexture(nil, "BACKGROUND")
+        control.EditBox.Background:SetAllPoints(control.EditBox)
+        control.EditBox.Background:SetColorTexture(0, 0, 0, 0.5)
+        
+        control.Button = CreateFrame("Button", nil, control, "UIPanelButtonTemplate")
+        control.Button:SetSize(60, 22)
+        control.Button:SetPoint("LEFT", control.EditBox, "RIGHT", 8, 0)
+        
         local shouldPersist = persistent == true
         
         if shouldPersist then
@@ -841,7 +933,6 @@ do  -- User Settings UI
                 control.EditBox:SetCursorPosition(0)
             end
             
-            -- Call onLoad with the initial saved value
             if onLoad then
                 onLoad(initialValue)
             end

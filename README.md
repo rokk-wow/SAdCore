@@ -11,7 +11,7 @@ SAdCore is a framework for rapidly building simple addons with consistent option
 - **Intuitive.** If a user can't remember where they saw a particular configuration setting, it's probably wrong
 - **Relevant.** If a configuration setting doesn't directly relate to the name of the addon, it's probably wrong
 - **Respectful.** If a users game setting is changed just by installing the addon, it's probably wrong
-- **Clear.** Checkboxes should enable, not disable ("Show Map", not "Hide Map")
+- **Affirmative.** Logic should always enable, not disable ("Show Map", not "Hide Map")
 - **Robust.** All code exists inside addon functions. The only global code is registering the ADDON_LOADED event
 
 ## Getting Started

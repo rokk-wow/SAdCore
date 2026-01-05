@@ -12,7 +12,6 @@ Libs\LibCompress\LibCompress.lua
 
 # Add additional addon files here
 
-SAdTemplates.xml
 Localization.lua
 Addon.lua
 SAdCore.lua
