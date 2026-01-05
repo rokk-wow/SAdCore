@@ -40,11 +40,11 @@ The framework automatically replaces keys with localized text.
 
 All controls support these common properties:
 
-- **`type`** (required) - The control type: `"header"`, `"description"`, `"checkbox"`, `"dropdown"`, `"slider"`, `"inputBox"`, or `"button"`
+- **`type`** (required) - The control type: `"header"`, `"description"`, `"checkbox"`, `"dropdown"`, `"slider"`, `"colorPicker"`, `"inputBox"`, or `"button"`
 - **`name`** (required) - Localization key used for both display text and variable storage. If the key is not found in localization, it displays as `[keyName]` to alert the developer
 - **`persistent`** (optional) - When `true`, the control's value is saved to SavedVariables (either global or per-character). When absent or `false`, the control is session-only and not persisted. Applies to: `checkbox`, `dropdown`, `slider`, `inputBox`
-- **`onValueChange`** (optional) - Callback function that fires immediately when the user changes the control's value. Receives the new value as a parameter. Perfect for applying settings in real-time without requiring a UI reload. Applies to: `checkbox`, `dropdown`, `slider`, `inputBox`
-- **`onLoad`** (optional) - Callback function that fires when the game starts or the addon loads. Receives the saved value as a parameter. Applies to: `checkbox`, `dropdown`, `slider`, `inputBox`
+- **`onValueChange`** (optional) - Callback function that fires immediately when the user changes the control's value. Receives the new value as a parameter. Perfect for applying settings in real-time without requiring a UI reload. Applies to: `checkbox`, `dropdown`, `slider`, `colorPicker`, `inputBox`
+- **`onLoad`** (optional) - Callback function that fires when the game starts or the addon loads. Receives the saved value as a parameter. Applies to: `checkbox`, `dropdown`, `slider`, `colorPicker`, `inputBox`
 
 ### Automatic Tooltips
 
@@ -146,6 +146,16 @@ addon.config.settings.example = {
             onLoad = addon.exampleSliderChanged
         },
         
+        -- Color Picker (persisted to database)
+        {
+            type = "colorPicker",
+            name = "exampleColor",
+            default = "#FFFFFF",
+            persistent = true,
+            onValueChange = addon.exampleColorChanged,
+            onLoad = addon.exampleColorChanged
+        },
+        
         -- Input Box (session-only)
         {
             type = "inputBox",
@@ -174,6 +184,10 @@ end
 
 function addon.exampleSliderChanged(value)
     addon.info("Slider changed to: " .. value)
+end
+
+function addon.exampleColorChanged(hexColor)
+    addon.info("Color changed to: " .. hexColor)
 end
 
 function addon.exampleInputClicked(inputText, editBox)

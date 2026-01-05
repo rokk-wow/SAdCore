@@ -249,7 +249,7 @@ do  -- Registration functions
 end
 
 
-do  -- User Settings UI
+do  -- Settings Panels
 
     function addon.ConfigureMainSettings()
         callHook("BeforeConfigureMainSettings")
@@ -457,6 +457,10 @@ do  -- User Settings UI
         callHook("AfterCreateSettingsPanel", panel)
         return panel
     end
+end
+
+do  -- Controls
+
 
     function addon.AddHeader(parent, yOffset, panelKey, name)
         parent, yOffset, panelKey, name = callHook("BeforeAddHeader", parent, yOffset, panelKey, name)
@@ -777,6 +781,131 @@ do  -- User Settings UI
         local newYOffset = yOffset - addon.config.ui.spacing.buttonHeight
         callHook("AfterAddButton", button, newYOffset)
         return button, newYOffset
+    end
+
+    function addon.AddColorPicker(parent, yOffset, panelKey, name, defaultValue, onValueChange, skipRefresh, persistent, onLoad)
+        parent, yOffset, panelKey, name, defaultValue, onValueChange, skipRefresh, persistent, onLoad = callHook("BeforeAddColorPicker", parent, yOffset, panelKey, name, defaultValue, onValueChange, skipRefresh, persistent, onLoad)
+        
+        local function hexToRGB(hex)
+            hex = hex:gsub("#", "")
+            local r = tonumber(hex:sub(1, 2), 16) / 255
+            local g = tonumber(hex:sub(3, 4), 16) / 255
+            local b = tonumber(hex:sub(5, 6), 16) / 255
+            return r, g, b
+        end
+        
+        local function rgbToHex(r, g, b)
+            r = math.floor(r * 255 + 0.5)
+            g = math.floor(g * 255 + 0.5)
+            b = math.floor(b * 255 + 0.5)
+            return string.format("#%02X%02X%02X", r, g, b)
+        end
+        
+        local currentValue = defaultValue
+        
+        if persistent == true then
+            addon.settings[panelKey] = addon.settings[panelKey] or {}
+            if addon.settings[panelKey][name] == nil then
+                addon.settings[panelKey][name] = defaultValue
+            end
+            currentValue = addon.settings[panelKey][name]
+        end
+        
+        local colorPicker = CreateFrame("Frame", nil, parent)
+        colorPicker:SetHeight(32)
+        colorPicker:SetPoint("TOPLEFT", addon.config.ui.spacing.controlLeft, yOffset)
+        colorPicker:SetPoint("TOPRIGHT", addon.config.ui.spacing.controlRight, yOffset)
+        
+        colorPicker.Text = colorPicker:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        colorPicker.Text:SetSize(205, 0)
+        colorPicker.Text:SetPoint("LEFT", 17, 0)
+        colorPicker.Text:SetJustifyH("LEFT")
+        colorPicker.Text:SetWordWrap(false)
+        colorPicker.Text:SetText(addon.L(name))
+        
+        colorPicker.ColorSwatch = CreateFrame("Button", nil, colorPicker)
+        colorPicker.ColorSwatch:SetSize(26, 26)
+        colorPicker.ColorSwatch:SetPoint("LEFT", 215, 0)
+        
+        colorPicker.ColorSwatch.Background = colorPicker.ColorSwatch:CreateTexture(nil, "BACKGROUND")
+        colorPicker.ColorSwatch.Background:SetColorTexture(1, 1, 1, 1)
+        colorPicker.ColorSwatch.Background:SetAllPoints()
+        
+        colorPicker.ColorSwatch.Color = colorPicker.ColorSwatch:CreateTexture(nil, "BORDER")
+        colorPicker.ColorSwatch.Color:SetColorTexture(hexToRGB(currentValue or defaultValue))
+        colorPicker.ColorSwatch.Color:SetPoint("TOPLEFT", 2, -2)
+        colorPicker.ColorSwatch.Color:SetPoint("BOTTOMRIGHT", -2, 2)
+        
+        colorPicker.ColorSwatch.Border = colorPicker.ColorSwatch:CreateTexture(nil, "OVERLAY")
+        colorPicker.ColorSwatch.Border:SetColorTexture(0, 0, 0, 1)
+        colorPicker.ColorSwatch.Border:SetAllPoints()
+        colorPicker.ColorSwatch.Border:SetDrawLayer("OVERLAY", 0)
+        
+        local function updateColor(hexColor)
+            local r, g, b = hexToRGB(hexColor)
+            colorPicker.ColorSwatch.Color:SetColorTexture(r, g, b)
+            if persistent == true then
+                addon.settings[panelKey][name] = hexColor
+            else
+                currentValue = hexColor
+            end
+            if onValueChange then
+                onValueChange(hexColor)
+            end
+        end
+        
+        if onLoad then
+            onLoad(currentValue or defaultValue)
+        end
+        
+        colorPicker.ColorSwatch:SetScript("OnClick", function(self)
+            local r, g, b = hexToRGB(persistent == true and addon.settings[panelKey][name] or currentValue or defaultValue)
+            
+            ColorPickerFrame:SetupColorPickerAndShow({
+                swatchFunc = function()
+                    local newR, newG, newB = ColorPickerFrame:GetColorRGB()
+                    local hexColor = rgbToHex(newR, newG, newB)
+                    updateColor(hexColor)
+                end,
+                cancelFunc = function()
+                    updateColor(rgbToHex(r, g, b))
+                end,
+                r = r,
+                g = g,
+                b = b,
+                hasOpacity = false,
+            })
+        end)
+        
+        if not skipRefresh and persistent == true then
+            colorPicker.refresh = function()
+                addon.settings[panelKey] = addon.settings[panelKey] or {}
+                local value = addon.settings[panelKey][name]
+                if value == nil then
+                    value = defaultValue
+                end
+                local r, g, b = hexToRGB(value)
+                colorPicker.ColorSwatch.Color:SetColorTexture(r, g, b)
+            end
+        end
+        
+        local tooltipKey = name .. "Tooltip"
+        local tooltipText = addon.L(tooltipKey)
+        if tooltipText ~= "[" .. tooltipKey .. "]" then
+            colorPicker.ColorSwatch:SetScript("OnEnter", function(self)
+                GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+                GameTooltip:SetText(addon.L(name), 1, 1, 1)
+                GameTooltip:AddLine(tooltipText, nil, nil, nil, true)
+                GameTooltip:Show()
+            end)
+            colorPicker.ColorSwatch:SetScript("OnLeave", function(self)
+                GameTooltip:Hide()
+            end)
+        end
+        
+        local newYOffset = yOffset - addon.config.ui.spacing.controlHeight
+        callHook("AfterAddColorPicker", colorPicker, newYOffset)
+        return colorPicker, newYOffset
     end
 
     function addon.AddDescription(parent, yOffset, panelKey, name, onClick)
@@ -1137,6 +1266,21 @@ do  -- User Settings UI
             callHook("AfterAddControl", control, newYOffset)
             return control, newYOffset
             
+        elseif controlType == "colorPicker" then
+            local control, newYOffset = addon.AddColorPicker(
+                parent, 
+                yOffset, 
+                panelKey, 
+                controlConfig.name,
+                controlConfig.default,
+                controlConfig.onValueChange,
+                controlConfig.skipRefresh,
+                controlConfig.persistent,
+                controlConfig.onLoad
+            )
+            callHook("AfterAddControl", control, newYOffset)
+            return control, newYOffset
+            
         else
             addon.debug("Unknown control type: " .. tostring(controlType))
             callHook("AfterAddControl", false, yOffset)
@@ -1174,6 +1318,10 @@ do  -- Utility Functions
             callHook("AfterL", "")
             return ""
         end
+        
+        key = key:gsub(" ", "_")
+        key = key:gsub("[^%w_]", "")
+        
         if key == "author" then 
             callHook("AfterL", addon.author)
             return addon.author
