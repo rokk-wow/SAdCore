@@ -67,6 +67,7 @@ do  -- Initialization
         addon.sadCore = addon.sadCore or {}
         addon.sadCore.version = "1.1"
         addon.author = string.char(82,195,180,107,107,45,87,121,114,109,114,101,115,116,32,65,99,99,111,114,100)
+        addon.apiVersion = select(4, GetBuildInfo())
         
         local clientLocale = GetLocale()
         addon.localization = addon.locale[clientLocale] or addon.locale.enEN
@@ -1151,9 +1152,13 @@ do  -- Utility Functions
         callHook("BeforeOpenSettings")
         
         if type(Settings) == "table" and type(Settings.OpenToCategory) == "function" then
-            Settings.OpenToCategory(addon.settingsCategory)
-            if addon.settingsCategory and addon.settingsCategory.ID then
-                Settings.OpenToCategory(addon.settingsCategory.ID)
+            if addon.settingsCategory then
+                if addon.apiVersion < 110100 then
+                    Settings.OpenToCategory(addon.settingsCategory)
+                end
+                if addon.settingsCategory.ID then
+                    Settings.OpenToCategory(addon.settingsCategory.ID)
+                end
             end
         end
         
