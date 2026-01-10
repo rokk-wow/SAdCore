@@ -47,7 +47,7 @@ SAdCore is a lightweight, embeddable framework for rapidly building simple addon
 
 2. **Update your `.toc` file** to load SAdCore:
    ```toc
-   ## Interface: 110207, 120000
+   ## Interface: 120000
    ## Title: YourAddon
    ## Author: Your Name
    ## Version: 1.0
