@@ -21,9 +21,9 @@ SAdCore is a framework for rapidly building simple addons with consistent option
 1. **Clone or download SAdCore** into your addon's `Libs` folder:
    ```bash
    cd YourAddon/Libs
-   git clone https://github.com/yourusername/SAdCore.git
+   git clone https://github.com/rokk-wow/SAdCore.git
    # or add as a submodule
-   git submodule add https://github.com/yourusername/SAdCore.git
+   git submodule add https://github.com/rokk-wow/SAdCore.git
    ```
 
    Your addon structure should look like:
@@ -137,7 +137,7 @@ Starting from scratch? Here's the complete process:
    cd MyNewAddon
    mkdir Libs
    cd Libs
-   git clone https://github.com/yourusername/SAdCore.git
+   git clone https://github.com/rokk-wow/SAdCore.git
    ```
 
 4. **Copy `Addon_Example.lua`** to your addon root and rename it:

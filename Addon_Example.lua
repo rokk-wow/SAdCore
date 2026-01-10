@@ -4,6 +4,9 @@ local addon = SAdCore:GetAddon(addonName)
 
 function addon.LoadConfig()
     addon.config.version = "1.0"
+    
+    -- Optional: Set custom author name (defaults to "SAdCore Framework" if not set)
+    addon.author = "Rôkk-Wyrmrest Accord"
 
     -- Example - Add Settings to Main Settings Panel
     addon.config.settings.main = {

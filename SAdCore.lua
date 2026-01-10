@@ -87,7 +87,6 @@ do  -- Initialization
         addon.config.settings = addon.config.settings or {}
         addon.sadCore = addon.sadCore or {}
         addon.sadCore.version = "1.1"
-        addon.author = string.char(82,195,180,107,107,45,87,121,114,109,114,101,115,116,32,65,99,99,111,114,100)
         addon.apiVersion = select(4, GetBuildInfo())
         
         local clientLocale = GetLocale()
@@ -132,6 +131,9 @@ do  -- Initialization
         }
 
         callHook("LoadConfig")
+
+        -- Set default author if not provided by addon
+        addon.author = addon.author or "SAdCore Framework"
 
         addon.InitializeSavedVariables(savedVarsGlobal, savedVarsPerChar)
 
