@@ -377,11 +377,9 @@ do -- Zone Management
         addon.currentZone = newZone
 
         if addon.zoneCallbacks and addon.zoneCallbacks[addon.currentZone] then
-            if addon.settings and addon.settings.main and addon.settings.main.enableZoneLogging then
-                local zoneName = addon.currentZone:lower()
-                if addon.L then
-                    addon.coreInfo(addon.L("entering") .. " " .. addon.L(zoneName) .. ".")
-                end
+            local zoneName = addon.currentZone:lower()
+            if addon.L then
+                addon.coreInfo(addon.L("entering") .. " " .. addon.L(zoneName) .. ".")
             end
 
             local enterCallback = addon.zoneCallbacks[addon.currentZone]
@@ -414,11 +412,6 @@ do -- Settings Panels
             type = "checkbox",
             name = "enableDebugging",
             default = false,
-            persistent = true
-        }, {
-            type = "checkbox",
-            name = "enableZoneLogging",
-            default = true,
             persistent = true
         }, {
             type = "header",
