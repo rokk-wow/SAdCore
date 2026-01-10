@@ -1,17 +1,14 @@
 ## Interface: 110207, 120000
-## Title: MyAddon
+## Title: Lib: SAdCore
+## Notes: Simple Addons Core - Framework for building consistent, simple WoW addons
 ## Author: Rôkk-Wyrmrest Accord
-## AddonCompartmentFunc: MyAddon_Compartment_Func
-## SavedVariables: MyAddon_Settings_Global
-## SavedVariablesPerCharacter: MyAddon_Settings_Char
-## IconTexture: Interface\Icons\boss_odunrunes_green
+## Version: 1.1
+## X-Category: Library
 
+# Load dependencies
 Libs\LibSerialize\LibStub\LibStub.lua
 Libs\LibSerialize\LibSerialize.lua
 Libs\LibCompress\LibCompress.lua
 
-# Add additional addon files here
-
-Localization.lua
-Addon.lua
+# Load SAdCore library
 SAdCore.lua

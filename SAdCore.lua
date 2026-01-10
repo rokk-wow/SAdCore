@@ -1,4 +1,26 @@
+-- SAdCore Library - Shared Framework for Simple Addons
+-- Uses LibStub to ensure a single shared instance across all addons
+local SADCORE_MAJOR, SADCORE_MINOR = "SAdCore-1", 1
+local SAdCore, oldminor = LibStub:NewLibrary(SADCORE_MAJOR, SADCORE_MINOR)
+if not SAdCore then return end -- Already loaded newer version
+
+-- Store references for addon-specific instances
+SAdCore.addons = SAdCore.addons or {}
+
+-- Get or create addon instance
+function SAdCore:GetAddon(addonName)
+    if not self.addons[addonName] then
+        -- Create new addon instance
+        local addon = {}
+        addon.addonName = addonName
+        addon.core = self
+        self.addons[addonName] = addon
+    end
+    return self.addons[addonName]
+end
+
 local addonName, addon = ...
+addon = SAdCore:GetAddon(addonName)
 
 --[[
     CRITICAL CODING CONSTRAINTS FOR THIS FILE:
@@ -58,11 +80,10 @@ end
 
 do  -- Initialization
 
-    function addon.initialize()        
-        callHook("BeforeInitialize")
+    function addon.Initialize(savedVarsGlobal, savedVarsPerChar)        
+        callHook("BeforeInitialize", savedVarsGlobal, savedVarsPerChar)
 
         addon.config = addon.config or {}
-        addon.config.toc = addon.config.toc or {}
         addon.config.settings = addon.config.settings or {}
         addon.sadCore = addon.sadCore or {}
         addon.sadCore.version = "1.1"
@@ -112,8 +133,7 @@ do  -- Initialization
 
         callHook("LoadConfig")
 
-        addon.InitializeCompartmentFunc(addon.config.toc.AddonCompartmentFunc)
-        addon.InitializeSavedVariables(addon.config.toc.SavedVariables, addon.config.toc.SavedVariablesPerCharacter)
+        addon.InitializeSavedVariables(savedVarsGlobal, savedVarsPerChar)
 
         addon.LibSerialize = LibStub("LibSerialize")
         addon.LibCompress = LibStub("LibCompress")
@@ -137,26 +157,11 @@ do  -- Initialization
         return returnValue
     end
 
-    function addon.InitializeCompartmentFunc(compartmentFunc)
-        compartmentFunc = callHook("BeforeInitializeCompartmentFunc", compartmentFunc)
+    function addon.InitializeSavedVariables(savedVarsGlobal, savedVarsPerChar)
+        savedVarsGlobal, savedVarsPerChar = callHook("BeforeInitializeSavedVariables", savedVarsGlobal, savedVarsPerChar)
         
-        if compartmentFunc then
-            _G[compartmentFunc] = function()
-                addon.OpenSettings()
-            end
-        end
-        
-        local returnValue = true
-        callHook("AfterInitializeCompartmentFunc", returnValue)
-        return returnValue
-    end
-
-    function addon.InitializeSavedVariables(savedVars, savedVarsPerChar)
-        savedVars, savedVarsPerChar = callHook("BeforeInitializeSavedVariables", savedVars, savedVarsPerChar)
-        
-        if savedVars then
-            _G[savedVars] = _G[savedVars] or {}
-            addon.settingsGlobal = _G[savedVars]
+        if savedVarsGlobal then
+            addon.settingsGlobal = savedVarsGlobal
             addon.settingsGlobal.main = addon.settingsGlobal.main or {}
         else
             addon.settingsGlobal = {}
@@ -164,8 +169,7 @@ do  -- Initialization
         end
 
         if savedVarsPerChar then
-            _G[savedVarsPerChar] = _G[savedVarsPerChar] or {}
-            addon.settingsChar = _G[savedVarsPerChar]
+            addon.settingsChar = savedVarsPerChar
             addon.settingsChar.main = addon.settingsChar.main or {}
         else
             addon.settingsChar = {}
@@ -221,7 +225,8 @@ do  -- Registration functions
     function addon.CreateSlashCommand()
         callHook("BeforeCreateSlashCommand")
         
-        addon.slashCommands = {}
+        addon.slashCommands = {}        
+        addon.slashCommands["inspect"] = addon.InspectCommand
         
         local slashCommandName = addonName:upper()
         _G["SLASH_" .. slashCommandName .. "1"] = "/" .. addonName:lower()
@@ -248,6 +253,101 @@ do  -- Registration functions
     end
 end
 
+do  -- Zone Management
+
+    -- Define supported zones (lowercase)
+    addon.zones = {
+        "arena",
+        "battleground",
+        "dungeon",
+        "raid",
+        "world"
+    }
+
+    function addon.RegisterZone(zoneName, enterCallback)
+        zoneName, enterCallback = callHook("BeforeRegisterZone", zoneName, enterCallback)
+        
+        if not addon.zoneCallbacks then
+            addon.zoneCallbacks = {}
+            addon.currentZone = nil
+            addon.previousZone = nil
+            
+            addon.RegisterEvent("PLAYER_ENTERING_WORLD", addon.HandleZoneChange)
+            addon.RegisterEvent("ZONE_CHANGED_NEW_AREA", addon.HandleZoneChange)
+            addon.RegisterEvent("PVP_MATCH_ACTIVE", addon.HandleZoneChange)
+            addon.RegisterEvent("ARENA_PREP_OPPONENT_SPECIALIZATIONS", addon.HandleZoneChange)
+            addon.RegisterEvent("ARENA_OPPONENT_UPDATE", addon.HandleZoneChange)
+            addon.RegisterEvent("PVP_MATCH_INACTIVE", addon.HandleZoneChange)
+            addon.RegisterEvent("PLAYER_ROLES_ASSIGNED", addon.HandleZoneChange)
+        end
+        
+        local normalizedZoneName = zoneName:upper()
+        
+        addon.zoneCallbacks[normalizedZoneName] = enterCallback
+        
+        local returnValue = true
+        callHook("AfterRegisterZone", returnValue)
+        return returnValue
+    end
+    
+    function addon.GetCurrentZone()
+        callHook("BeforeGetCurrentZone")
+        
+        local zoneName = "WORLD"
+        local instanceName, instanceType = GetInstanceInfo()
+        
+        if     instanceType == "arena"  then zoneName = "ARENA"
+        elseif instanceType == "pvp"    then zoneName = "BATTLEGROUND"
+        elseif instanceType == "party"  then zoneName = "DUNGEON"
+        elseif instanceType == "raid"   then zoneName = "RAID"
+        else                                 zoneName = "WORLD"
+        end
+        
+        local returnValue = zoneName
+        callHook("AfterGetCurrentZone", returnValue)
+        return returnValue
+    end
+    
+    function addon.HandleZoneChange()
+        callHook("BeforeHandleZoneChange")
+        
+        if not addon.initialized then
+            local returnValue = false
+            callHook("AfterHandleZoneChange", returnValue)
+            return returnValue
+        end
+        
+        local newZone = addon.GetCurrentZone()
+        
+        if newZone == addon.currentZone then
+            local returnValue = false
+            callHook("AfterHandleZoneChange", returnValue)
+            return returnValue
+        end
+        
+        addon.previousZone = addon.currentZone
+        addon.currentZone = newZone
+        
+        if addon.zoneCallbacks and addon.zoneCallbacks[addon.currentZone] then
+            if addon.settings and addon.settings.main and addon.settings.main.enableZoneLogging then
+                local zoneName = addon.currentZone:lower()
+                if addon.L then
+                    addon.coreInfo(addon.L("entering") .. " " .. addon.L(zoneName) .. ".")
+                end
+            end
+            
+            local enterCallback = addon.zoneCallbacks[addon.currentZone]
+            if enterCallback and type(enterCallback) == "function" then
+                enterCallback()
+            end
+        end
+        
+        local returnValue = true
+        callHook("AfterHandleZoneChange", returnValue)
+        return returnValue
+    end
+end
+
 
 do  -- Settings Panels
 
@@ -270,6 +370,12 @@ do  -- Settings Panels
                 type = "checkbox",
                 name = "enableDebugging",
                 default = false,
+                persistent = true
+            },
+            {
+                type = "checkbox",
+                name = "enableZoneLogging",
+                default = true,
                 persistent = true
             },
             {
@@ -618,7 +724,9 @@ do  -- Controls
         dropdown.Dropdown = CreateFrame("Frame", nil, dropdown, "UIDropDownMenuTemplate")
         dropdown.Dropdown:SetPoint("LEFT", 200, 3)
         UIDropDownMenu_SetWidth(dropdown.Dropdown, addon.config.ui.dropdown.width)
-        UIDropDownMenu_Initialize(dropdown.Dropdown, function(dropdownFrame, level)
+        
+        local initializeFunc = function(dropdownFrame, level)
+            local savedValue = persistent and addon.settings[panelKey][name] or currentValue
             for _, option in ipairs(options) do
                 local info = UIDropDownMenu_CreateInfo()
                 info.text = addon.L(option.label)
@@ -630,12 +738,15 @@ do  -- Controls
                         currentValue = self.value
                     end
                     UIDropDownMenu_SetSelectedValue(dropdown.Dropdown, self.value)
+                    UIDropDownMenu_Initialize(dropdown.Dropdown, initializeFunc) -- Reinitialize to update checked states
                     if onValueChange then onValueChange(self.value) end
                 end
-                info.checked = (currentValue == option.value)
+                info.checked = (savedValue == option.value)
                 UIDropDownMenu_AddButton(info, level)
             end
-        end)
+        end
+        
+        UIDropDownMenu_Initialize(dropdown.Dropdown, initializeFunc)
         UIDropDownMenu_SetSelectedValue(dropdown.Dropdown, currentValue or defaultValue)
         
         if onLoad then
@@ -696,6 +807,8 @@ do  -- Controls
         slider.Slider:SetWidth(addon.config.ui.slider.width)
         
         local function updateValue(value)
+            -- Prevent negative zero display
+            if value == 0 then value = 0 end
             slider.Value:SetText(string.format("%.0f", value))
         end
         updateValue(currentValue or defaultValue)
@@ -786,21 +899,6 @@ do  -- Controls
     function addon.AddColorPicker(parent, yOffset, panelKey, name, defaultValue, onValueChange, skipRefresh, persistent, onLoad)
         parent, yOffset, panelKey, name, defaultValue, onValueChange, skipRefresh, persistent, onLoad = callHook("BeforeAddColorPicker", parent, yOffset, panelKey, name, defaultValue, onValueChange, skipRefresh, persistent, onLoad)
         
-        local function hexToRGB(hex)
-            hex = hex:gsub("#", "")
-            local r = tonumber(hex:sub(1, 2), 16) / 255
-            local g = tonumber(hex:sub(3, 4), 16) / 255
-            local b = tonumber(hex:sub(5, 6), 16) / 255
-            return r, g, b
-        end
-        
-        local function rgbToHex(r, g, b)
-            r = math.floor(r * 255 + 0.5)
-            g = math.floor(g * 255 + 0.5)
-            b = math.floor(b * 255 + 0.5)
-            return string.format("#%02X%02X%02X", r, g, b)
-        end
-        
         local currentValue = defaultValue
         
         if persistent == true then
@@ -832,7 +930,8 @@ do  -- Controls
         colorPicker.ColorSwatch.Background:SetAllPoints()
         
         colorPicker.ColorSwatch.Color = colorPicker.ColorSwatch:CreateTexture(nil, "BORDER")
-        colorPicker.ColorSwatch.Color:SetColorTexture(hexToRGB(currentValue or defaultValue))
+        local r, g, b, a = addon.hexToRGB(currentValue or defaultValue)
+        colorPicker.ColorSwatch.Color:SetColorTexture(r, g, b, a)
         colorPicker.ColorSwatch.Color:SetPoint("TOPLEFT", 2, -2)
         colorPicker.ColorSwatch.Color:SetPoint("BOTTOMRIGHT", -2, 2)
         
@@ -842,8 +941,8 @@ do  -- Controls
         colorPicker.ColorSwatch.Border:SetDrawLayer("OVERLAY", 0)
         
         local function updateColor(hexColor)
-            local r, g, b = hexToRGB(hexColor)
-            colorPicker.ColorSwatch.Color:SetColorTexture(r, g, b)
+            local r, g, b, a = addon.hexToRGB(hexColor)
+            colorPicker.ColorSwatch.Color:SetColorTexture(r, g, b, a)
             if persistent == true then
                 addon.settings[panelKey][name] = hexColor
             else
@@ -859,21 +958,29 @@ do  -- Controls
         end
         
         colorPicker.ColorSwatch:SetScript("OnClick", function(self)
-            local r, g, b = hexToRGB(persistent == true and addon.settings[panelKey][name] or currentValue or defaultValue)
+            local r, g, b, a = addon.hexToRGB(persistent == true and addon.settings[panelKey][name] or currentValue or defaultValue)
             
             ColorPickerFrame:SetupColorPickerAndShow({
                 swatchFunc = function()
                     local newR, newG, newB = ColorPickerFrame:GetColorRGB()
-                    local hexColor = rgbToHex(newR, newG, newB)
+                    local newA = ColorPickerFrame:GetColorAlpha()
+                    local hexColor = addon.rgbToHex(newR, newG, newB, newA)
                     updateColor(hexColor)
                 end,
                 cancelFunc = function()
-                    updateColor(rgbToHex(r, g, b))
+                    updateColor(addon.rgbToHex(r, g, b, a))
+                end,
+                opacityFunc = function()
+                    local newR, newG, newB = ColorPickerFrame:GetColorRGB()
+                    local newA = ColorPickerFrame:GetColorAlpha()
+                    local hexColor = addon.rgbToHex(newR, newG, newB, newA)
+                    updateColor(hexColor)
                 end,
                 r = r,
                 g = g,
                 b = b,
-                hasOpacity = false,
+                opacity = a,
+                hasOpacity = true,
             })
         end)
         
@@ -884,8 +991,8 @@ do  -- Controls
                 if value == nil then
                     value = defaultValue
                 end
-                local r, g, b = hexToRGB(value)
-                colorPicker.ColorSwatch.Color:SetColorTexture(r, g, b)
+                local r, g, b, a = addon.hexToRGB(value)
+                colorPicker.ColorSwatch.Color:SetColorTexture(r, g, b, a)
             end
         end
         
@@ -1292,6 +1399,246 @@ end
 
 do  -- Utility Functions
 
+    function addon.InspectCommand(frameName)
+        frameName = callHook("BeforeInspectCommand", frameName)
+        
+        if not frameName or frameName == "" then
+            addon.info("Usage: /" .. addonName:lower() .. " inspect <frameName>")
+            local returnValue = false
+            callHook("AfterInspectCommand", returnValue)
+            return returnValue
+        end
+        
+        local inspectionResult = addon.InspectFrame(frameName)
+        
+        if inspectionResult then
+            addon.ShowDialog({
+                title = frameName,
+                controls = {
+                    {
+                        type = "inputBox",
+                        name = "inspectResult",
+                        default = inspectionResult,
+                        highlightText = true
+                    }
+                }
+            })
+            local returnValue = true
+            callHook("AfterInspectCommand", returnValue)
+            return returnValue
+        else
+            addon.error("Frame not found: " .. frameName)
+            local returnValue = false
+            callHook("AfterInspectCommand", returnValue)
+            return returnValue
+        end
+    end
+
+    function addon.InspectFrame(frameName)
+        frameName = callHook("BeforeInspectFrame", frameName)
+        
+        local frame = _G[frameName]
+        if not frame then
+            callHook("AfterInspectFrame", false)
+            return false
+        end
+        
+        local output = {}
+        local indent = 0
+        
+        local function addLine(text)
+            table.insert(output, string.rep("  ", indent) .. text)
+        end
+        
+        local function safeCall(func, ...)
+            local success, result = pcall(func, ...)
+            if success then
+                return result
+            end
+            return nil
+        end
+        
+        local function getFrameAttributes(frame, suggestedName)
+            local attrs = {}
+            
+            local name = safeCall(frame.GetName, frame) or suggestedName or "Anonymous"
+            table.insert(attrs, 'name="' .. name .. '"')
+            
+            local frameType = safeCall(frame.GetObjectType, frame) or "Frame"
+            table.insert(attrs, 'type="' .. frameType .. '"')
+            
+            if frame.IsVisible then
+                local visible = safeCall(frame.IsVisible, frame)
+                if visible ~= nil then
+                    table.insert(attrs, 'visible="' .. tostring(visible) .. '"')
+                end
+            end
+            
+            if frame.GetAlpha then
+                local alpha = safeCall(frame.GetAlpha, frame)
+                if alpha and alpha < 1.0 then
+                    table.insert(attrs, string.format('alpha="%.2f"', alpha))
+                end
+            end
+            
+            if frame.GetWidth and frame.GetHeight then
+                local width = safeCall(frame.GetWidth, frame)
+                local height = safeCall(frame.GetHeight, frame)
+                if width and width > 0 then
+                    table.insert(attrs, string.format('width="%.0f"', width))
+                end
+                if height and height > 0 then
+                    table.insert(attrs, string.format('height="%.0f"', height))
+                end
+            end
+            
+            if frameType == "StatusBar" and frame.GetStatusBarTexture then
+                local texture = safeCall(frame.GetStatusBarTexture, frame)
+                if texture then
+                    table.insert(attrs, 'statusBarTexture="' .. tostring(texture) .. '"')
+                end
+                if frame.GetNumRegions then
+                    local numRegions = safeCall(frame.GetNumRegions, frame)
+                    if numRegions then
+                        table.insert(attrs, 'numRegions="' .. numRegions .. '"')
+                    end
+                end
+            end
+            
+            if frameType == "FontString" and frame.GetText then
+                local text = safeCall(frame.GetText, frame)
+                if text and text ~= "" then
+                    text = text:gsub('"', '\\"')
+                    if #text > 50 then
+                        text = text:sub(1, 50) .. "..."
+                    end
+                    table.insert(attrs, 'text="' .. text .. '"')
+                end
+            end
+            
+            if frameType == "Texture" then
+                if frame.GetTexture then
+                    local texture = safeCall(frame.GetTexture, frame)
+                    if texture then
+                        table.insert(attrs, 'texture="' .. tostring(texture) .. '"')
+                    end
+                end
+                if frame.GetAtlas then
+                    local atlas = safeCall(frame.GetAtlas, frame)
+                    if atlas then
+                        table.insert(attrs, 'atlas="' .. atlas .. '"')
+                    end
+                end
+            end
+            
+            return table.concat(attrs, " ")
+        end
+        
+        local function inspectFrameRecursive(frame, frameName, parentFrame)
+            local success, attrs = pcall(getFrameAttributes, frame, frameName)
+            if not success then
+                addLine("<!-- Protected/Forbidden Frame: " .. tostring(frameName) .. " -->")
+                return
+            end
+            
+            addLine("<" .. frameName .. " " .. attrs .. ">")
+            indent = indent + 1
+            
+            if frame.GetNumRegions then
+                local numRegions = safeCall(frame.GetNumRegions, frame) or 0
+                if numRegions > 0 then
+                    addLine("<!-- Regions -->")
+                    local regions = {frame:GetRegions()}
+                    for i = 1, numRegions do
+                        local region = regions[i]
+                        if region then
+                            -- Try to find the region's name by checking parent's properties
+                            local regionName = safeCall(region.GetName, region)
+                            if not regionName and parentFrame then
+                                -- Check if this region is a named property of the parent
+                                for key, value in pairs(parentFrame) do
+                                    if value == region and type(key) == "string" then
+                                        regionName = key
+                                        break
+                                    end
+                                end
+                            end
+                            regionName = regionName or ("Region" .. i)
+                            
+                            local regionSuccess, regionAttrs = pcall(getFrameAttributes, region, regionName)
+                            if regionSuccess then
+                                addLine("<" .. regionName .. " " .. regionAttrs .. " />")
+                            else
+                                addLine("<!-- Protected Region" .. i .. " -->")
+                            end
+                        end
+                    end
+                end
+            end
+            
+            if frame.GetChildren then
+                local numChildren = safeCall(frame.GetNumChildren, frame) or 0
+                if numChildren > 0 then
+                    addLine("<!-- Children -->")
+                    local children = {frame:GetChildren()}
+                    for i = 1, numChildren do
+                        local child = children[i]
+                        if child then
+                            local childName = safeCall(child.GetName, child)
+                            if not childName and frame then
+                                -- Check if this child is a named property of the parent
+                                for key, value in pairs(frame) do
+                                    if value == child and type(key) == "string" then
+                                        childName = key
+                                        break
+                                    end
+                                end
+                            end
+                            childName = childName or "Anonymous"
+                            inspectFrameRecursive(child, childName, frame)
+                        end
+                    end
+                end
+            end
+            
+            indent = indent - 1
+            addLine("</" .. frameName .. ">")
+        end
+        
+        addLine("-- " .. string.rep("=", 80))
+        addLine("-- FRAME INSPECTION: " .. frameName)
+        addLine("-- " .. string.rep("=", 80))
+        inspectFrameRecursive(frame, frameName, nil)
+        addLine("-- " .. string.rep("=", 80))
+        
+        local result = table.concat(output, "\n")
+        callHook("AfterInspectFrame", result)
+        return result
+    end
+    
+    function addon.hexToRGB(hex)
+        hex = hex:gsub("#", "")
+        local r = tonumber(hex:sub(1, 2), 16) / 255
+        local g = tonumber(hex:sub(3, 4), 16) / 255
+        local b = tonumber(hex:sub(5, 6), 16) / 255
+        local a = 1
+        if #hex == 8 then
+            a = tonumber(hex:sub(7, 8), 16) / 255
+        end
+        return r, g, b, a
+    end
+    
+    function addon.rgbToHex(r, g, b, a)
+        r = math.floor(r * 255 + 0.5)
+        g = math.floor(g * 255 + 0.5)
+        b = math.floor(b * 255 + 0.5)
+        if a then
+            a = math.floor(a * 255 + 0.5)
+            return string.format("#%02X%02X%02X%02X", r, g, b, a)
+        end
+        return string.format("#%02X%02X%02X", r, g, b)
+    end
+
     function addon.OpenSettings()
         callHook("BeforeOpenSettings")
         
@@ -1334,6 +1681,16 @@ do  -- Utility Functions
         local result = addon.localization[key] or ("[" .. key .. "]")
         callHook("AfterL", result)
         return result
+    end
+
+    function addon.coreInfo(text)
+        print("\124cffDB09FE" .. "SAdCore" .. ": " .. "\124cffBAFF1A" .. tostring(text))
+    end
+
+    function addon.coreDebug(text)
+        if addon.settings and addon.settings.main and addon.settings.main.enableDebugging then
+            print("\124cffDB09FE" .. "SAdCore" .. " Debug: " .. "\124cffBAFF1A" .. tostring(text))
+        end
     end
 
     function addon.info(text)
@@ -1520,12 +1877,3 @@ do  -- Utility Functions
     end
 
 end
-
-
--- Entry Point: Register ADDON_LOADED
-addon.RegisterEvent("ADDON_LOADED", function(event, loadedAddon)
-    if loadedAddon == addonName then
-        addon.initialize()
-        addon.eventFrame:UnregisterEvent("ADDON_LOADED")
-    end
-end)

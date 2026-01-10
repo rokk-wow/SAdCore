@@ -14,25 +14,180 @@ SAdCore is a framework for rapidly building simple addons with consistent option
 - **Affirmative.** Logic should always enable, not disable ("Show Map", not "Hide Map")
 - **Robust.** All code exists inside addon functions. The only global code is registering the ADDON_LOADED event
 
-## Getting Started
+## Installation
 
-1. Rename the folder and `.toc` file to your addon name
-2. Update the TOC file with your addon name in Title, AddonCompartmentFunc, SavedVariables, and SavedVariablesPerCharacter
-3. Update the same values in `Addon.lua` under `addon.config.toc`
-4. Add your controls to `addon.config.settings.main` in `Addon.lua`
-5. Add localization strings to `Localization.lua`
+### Embedding SAdCore in Your Addon
+
+1. **Clone or download SAdCore** into your addon's `Libs` folder:
+   ```bash
+   cd YourAddon/Libs
+   git clone https://github.com/yourusername/SAdCore.git
+   # or add as a submodule
+   git submodule add https://github.com/yourusername/SAdCore.git
+   ```
+
+   Your addon structure should look like:
+   ```
+   YourAddon/
+   ├── Libs/
+   │   └── SAdCore/
+   │       ├── Libs/
+   │       │   ├── LibSerialize/
+   │       │   ├── LibCompress/
+   │       │   └── ...
+   │       ├── SAdCore.lua
+   │       ├── SAdCore.toc
+   │       ├── Addon_Example.lua
+   │       └── README.md
+   ├── YourAddon.lua
+   └── YourAddon.toc
+   ```
+
+2. **Update your `.toc` file** to load SAdCore:
+   ```toc
+   ## Interface: 110207, 120000
+   ## Title: YourAddon
+   ## Author: Your Name
+   ## Version: 1.0
+   ## SavedVariables: YourAddon_Settings_Global
+   ## SavedVariablesPerCharacter: YourAddon_Settings_Char
+   ## AddonCompartmentFunc: YourAddon_Compartment_Func
+
+   # Load SAdCore library (includes all dependencies)
+   Libs\SAdCore\SAdCore.toc
+
+   # Your addon files
+   YourAddon.lua
+   ```
+
+3. **Initialize your addon** in `YourAddon.lua`:
+   ```lua
+   local addonName = ...
+   local SAdCore = LibStub("SAdCore-1")
+   local addon = SAdCore:GetAddon(addonName)
+   
+   -- Configure your addon
+   function addon.LoadConfig()
+       addon.config.version = "1.0"
+       addon.config.settings.main = {
+           title = "settingsTitle",
+           controls = {
+               {
+                   type = "checkbox",
+                   name = "enableFeature",
+                   default = true,
+                   persistent = true
+               }
+           }
+       }
+   end
+   
+   -- Handle addon loading
+   local frame = CreateFrame("Frame")
+   frame:RegisterEvent("ADDON_LOADED")
+   frame:SetScript("OnEvent", function(self, event, loadedAddon)
+       if loadedAddon == addonName then
+           -- Initialize with your SavedVariables
+           addon:Initialize(YourAddon_Settings_Global, YourAddon_Settings_Char)
+           
+           -- Optional: Register compartment function
+           YourAddon_Compartment_Func = function()
+               addon.OpenSettings()
+           end
+           
+           self:UnregisterEvent("ADDON_LOADED")
+       end
+   end)
+   
+   -- Localization
+   addon.locale = {}
+   addon.locale.enEN = {
+       settingsTitle = "My Addon Settings",
+       enableFeature = "Enable Feature"
+   }
+   ```
+
+**Important**: The SavedVariable names passed to `Initialize()` must match exactly what's declared in your `.toc` file.
+
+## Quick Start: Creating a New Addon
+
+Starting from scratch? Here's the complete process:
+
+1. **Create your addon folder** in `World of Warcraft\_retail_\Interface\AddOns\`:
+   ```
+   MyNewAddon/
+   ```
+
+2. **Create `MyNewAddon.toc`** with these required fields:
+   ```toc
+   ## Interface: 110207, 120000
+   ## Title: My New Addon
+   ## Author: Your Name
+   ## Version: 1.0
+   ## SavedVariables: MyNewAddon_Settings_Global
+   ## SavedVariablesPerCharacter: MyNewAddon_Settings_Char
+   ## AddonCompartmentFunc: MyNewAddon_Compartment_Func
+   
+   Libs\SAdCore\SAdCore.toc
+   MyNewAddon.lua
+   ```
+
+3. **Clone SAdCore** into your addon's Libs folder:
+   ```bash
+   cd MyNewAddon
+   mkdir Libs
+   cd Libs
+   git clone https://github.com/yourusername/SAdCore.git
+   ```
+
+4. **Copy `Addon_Example.lua`** to your addon root and rename it:
+   ```bash
+   copy Libs\SAdCore\Addon_Example.lua MyNewAddon.lua
+   ```
+
+5. **Update `MyNewAddon.lua`**:
+   - Find/replace `MyAddon` with `MyNewAddon` (matches your SavedVariables names)
+   - Customize settings in `addon.LoadConfig()`
+   - Update localization strings in `addon.locale.enEN`
+
+6. **Load WoW and test** - your addon will appear in the AddOns list and Interface Options
+
+That's it! You now have a working addon with a settings panel, SavedVariables persistence, and import/export functionality.
+
+## How It Works
+
+**LibStub Singleton Pattern**: When multiple addons embed SAdCore, LibStub ensures only one shared instance runs. If Addon A has SAdCore v1.2 and Addon B has v1.5, both will use v1.5 (the highest version). This means:
+- ✅ Core logging appears only once
+- ✅ Shared event management
+- ✅ Efficient memory usage
+- ✅ Addons can communicate through the shared core
+
+**Addon Independence**: Each addon manages its own:
+- Lifecycle (ADDON_LOADED event)
+- SavedVariables declaration in .toc
+- Compartment function registration
+- Settings panels and UI
+- Configuration and callbacks
+
+SAdCore provides the framework functions while respecting each addon's autonomy.
 
 ## Localization
 
-All user-facing text uses localization keys. If you see `[keyName]` in your UI, add that key to `Localization.lua`:
+All user-facing text uses localization keys. This allows you to easily translate into other languages.
+
+By default, localization is defined in `Addon.lua` at the bottom of the file. You can optionally move it to a separate `Localization.lua` file.
+
+**Adding localized text:**
 
 ```lua
 addon.locale.enEN = {
-    keyName = "Your Text Here"
+    keyName = "Your Text Here",
+    exampleHeader = "My Settings",
+    exampleCheckbox = "Enable Feature"
 }
 ```
 
-The framework automatically replaces keys with localized text.
+When you use `name = "exampleHeader"` in your control config, SAdCore automatically displays "My Settings". If a key is missing, it displays as `[keyName]` to alert you during development.
 
 ## Control Properties
 
@@ -56,6 +211,13 @@ To add a tooltip, define a localization key with the control's name + `"Tooltip"
 - **`options`** (required) - Array of option objects, each with:
   - `value` - The internal value stored when selected
   - `label` - Localization key for the displayed text
+
+**Color Picker:**
+- **`default`** (required) - Hex color code in one of two formats:
+  - 6-character format: `"#RRGGBB"` (e.g., `"#FFFFFF"` for white, `"#FF0000"` for red)
+  - 8-character format with alpha: `"#RRGGBBAA"` (e.g., `"#FFFFFF80"` for 50% transparent white, `"#FF0000FF"` for fully opaque red)
+  - Alpha values range from `00` (fully transparent) to `FF` (fully opaque)
+- The color picker UI includes an opacity slider that automatically updates the alpha channel
 
 **Note:** All user-facing text (control names, tooltips, dropdown labels, button text) must use localization keys. The framework passes these through `addon.L()` to display the localized text.
 
@@ -147,6 +309,8 @@ addon.config.settings.example = {
         },
         
         -- Color Picker (persisted to database)
+        -- Supports 6-character hex (#RRGGBB) or 8-character hex with alpha (#RRGGBBAA)
+        -- Alpha values: #FFFFFF (fully opaque) or #FFFFFF80 (50% transparent)
         {
             type = "colorPicker",
             name = "exampleColor",
@@ -268,6 +432,73 @@ end
 ```
 
 Unregister: `addon.eventFrame:UnregisterEvent("UNIT_HEALTH")`
+
+## Zone Management
+
+SAdCore provides automatic zone detection and callbacks. Register functions to execute when entering specific zones.
+
+### Supported Zones
+
+Use the predefined `addon.zones` list:
+```lua
+-- Available zones: "arena", "battleground", "dungeon", "raid", "world"
+for _, zoneName in ipairs(addon.zones) do
+    -- Your code here
+end
+```
+
+### Registering Zone Callbacks
+
+Register a callback for when the player enters a zone:
+
+```lua
+function addon.RegisterFunctions()
+    addon.RegisterZone("ARENA", addon.enteringArena)
+    addon.RegisterZone("BATTLEGROUND", addon.enteringBattleground)
+    addon.RegisterZone("WORLD", addon.enteringWorld)
+end
+
+function addon.enteringArena()
+    addon.info("Entered arena - applying arena settings")
+    -- Apply your arena-specific settings
+end
+
+function addon.enteringWorld()
+    addon.info("Entered world - restoring default settings")
+    -- Restore default settings
+end
+```
+
+### Zone Detection Events
+
+Zone changes are automatically detected from these events:
+- `PLAYER_ENTERING_WORLD`
+- `ZONE_CHANGED_NEW_AREA`
+- `PVP_MATCH_ACTIVE`
+- `PVP_MATCH_INACTIVE`
+- `ARENA_PREP_OPPONENT_SPECIALIZATIONS`
+- `ARENA_OPPONENT_UPDATE`
+- `PLAYER_ROLES_ASSIGNED`
+
+### Getting Current Zone
+
+```lua
+local currentZone = addon.GetCurrentZone()
+-- Returns: "ARENA", "BATTLEGROUND", "DUNGEON", "RAID", or "WORLD"
+```
+
+### Zone Leave Events
+
+To execute code when leaving a zone, use hooks:
+
+```lua
+function addon.BeforeHandleZoneChange()
+    if addon.previousZone == "ARENA" then
+        addon.info("Leaving arena")
+        -- Your cleanup code
+    end
+end
+```
 
 ## Logging Functions
 
