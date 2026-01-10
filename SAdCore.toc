@@ -1,6 +1,6 @@
 ## Interface: 110207, 120000
 ## Title: Lib: SAdCore
-## Notes: Simple Addons Core - Framework for building consistent, simple WoW addons
+## Notes: Embeddable framework for building consistent, simple WoW addons with auto-generated settings UI
 ## Author: Rôkk-Wyrmrest Accord
 ## Version: 1.1
 ## X-Category: Library

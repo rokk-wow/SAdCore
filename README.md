@@ -2,7 +2,9 @@
 
 Simple Addons are about consistency. They do one thing, and they do it well.
 
-SAdCore is a framework for rapidly building simple addons with consistent options and controls. Define your checkboxes, dropdowns, sliders, and buttons, and the settings UI is automatically generated with values persisted to SavedVariables. Built-in features include settings import/export and the ability to switch between global and character-specific profiles.
+SAdCore is a lightweight, embeddable framework for rapidly building simple addons with consistent options and controls. Define your checkboxes, dropdowns, sliders, and buttons, and the settings UI is automatically generated with values persisted to SavedVariables. Built-in features include settings import/export, profile management, and optional zone detection for addons that need zone-based behavior.
+
+**Note:** SAdCore is a library, not a standalone addon. It's embedded within other addons (similar to Ace3, LibStub, etc.).
 
 ## The SAd Creed
 
@@ -433,9 +435,9 @@ end
 
 Unregister: `addon.eventFrame:UnregisterEvent("UNIT_HEALTH")`
 
-## Zone Management
+## Zone Management (Optional)
 
-SAdCore provides automatic zone detection and callbacks. Register functions to execute when entering specific zones.
+SAdCore provides **optional** automatic zone detection and callbacks. This feature is designed for addons that need zone-based behavior (like chat filters or UI visibility in different zones). If your addon doesn't need zone-specific functionality, simply don't use these functions.
 
 ### Supported Zones
 

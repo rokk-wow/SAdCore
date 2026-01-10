@@ -1,4 +1,9 @@
 --[[
+    SAdCore - Simple Addons Core Framework
+    
+    An embeddable library for building consistent WoW addons with auto-generated settings UI.
+    Designed to be lightweight and flexible - use only the features you need.
+    
     CRITICAL CODING CONSTRAINTS FOR THIS FILE:
     
     SCOPE: These constraints apply ONLY to addon.* functions (functions on the addon table).
