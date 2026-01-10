@@ -14,7 +14,7 @@ SAdCore is a lightweight, embeddable framework for rapidly building simple addon
 - **Relevant.** If a configuration setting doesn't directly relate to the name of the addon, it's probably wrong
 - **Respectful.** If a users game setting is changed just by installing the addon, it's probably wrong
 - **Affirmative.** Logic should always enable, not disable ("Show Map", not "Hide Map")
-- **Robust.** All code exists inside addon functions. The only global code is registering the ADDON_LOADED event
+- **Robust.** All code exists inside addon functions. Setup is handled with a single `addon.Setup()` call
 
 ## Installation
 
@@ -84,22 +84,8 @@ SAdCore is a lightweight, embeddable framework for rapidly building simple addon
        }
    end
    
-   -- Handle addon loading
-   local frame = CreateFrame("Frame")
-   frame:RegisterEvent("ADDON_LOADED")
-   frame:SetScript("OnEvent", function(self, event, loadedAddon)
-       if loadedAddon == addonName then
-           -- Initialize with your SavedVariables
-           addon:Initialize(YourAddon_Settings_Global, YourAddon_Settings_Char)
-           
-           -- Optional: Register compartment function
-           YourAddon_Compartment_Func = function()
-               addon.OpenSettings()
-           end
-           
-           self:UnregisterEvent("ADDON_LOADED")
-       end
-   end)
+   -- Setup: Automatically handles ADDON_LOADED and initialization
+   addon.Setup(YourAddon_Settings_Global, YourAddon_Settings_Char, "YourAddon_Compartment_Func")
    
    -- Localization
    addon.locale = {}
@@ -109,7 +95,7 @@ SAdCore is a lightweight, embeddable framework for rapidly building simple addon
    }
    ```
 
-**Important**: The SavedVariable names passed to `Initialize()` must match exactly what's declared in your `.toc` file.
+**Important**: The SavedVariable names passed to `Setup()` must match exactly what's declared in your `.toc` file. The compartment function name is optional (pass `nil` if not needed).
 
 ## Quick Start: Creating a New Addon
 
@@ -165,13 +151,75 @@ That's it! You now have a working addon with a settings panel, SavedVariables pe
 - ✅ Addons can communicate through the shared core
 
 **Addon Independence**: Each addon manages its own:
-- Lifecycle (ADDON_LOADED event)
+- Lifecycle (via `addon.Setup()` method)
 - SavedVariables declaration in .toc
 - Compartment function registration
 - Settings panels and UI
 - Configuration and callbacks
 
 SAdCore provides the framework functions while respecting each addon's autonomy.
+
+## Initialization Methods
+
+SAdCore provides two ways to initialize your addon:
+
+### addon.Setup() - Recommended (Simple)
+
+The easiest way to initialize your addon. Just call `Setup()` with your SavedVariables and optional compartment function:
+
+```lua
+addon.Setup(YourAddon_Settings_Global, YourAddon_Settings_Char, "YourAddon_Compartment_Func")
+```
+
+**Parameters:**
+- `savedVarsGlobal` - Your global SavedVariables table (or `nil`)
+- `savedVarsPerChar` - Your per-character SavedVariables table (or `nil`)
+- `compartmentFuncName` - (Optional) Name of your compartment function as a string, or `nil` if not using
+
+**What it does automatically:**
+- Registers for the `ADDON_LOADED` event
+- Calls `Initialize()` when your addon loads
+- Sets up the compartment function
+- Cleans up after initialization
+
+**Example:**
+```lua
+-- Simple setup with all features
+addon.Setup(MyAddon_Settings_Global, MyAddon_Settings_Char, "MyAddon_Compartment_Func")
+
+-- Without compartment function
+addon.Setup(MyAddon_Settings_Global, MyAddon_Settings_Char)
+
+-- Character-only settings
+addon.Setup(nil, MyAddon_Settings_Char)
+```
+
+### addon:Initialize() - Advanced (Manual Control)
+
+For advanced users who need custom initialization logic or want to handle `ADDON_LOADED` themselves:
+
+```lua
+local frame = CreateFrame("Frame")
+frame:RegisterEvent("ADDON_LOADED")
+frame:SetScript("OnEvent", function(self, event, loadedAddon)
+    if loadedAddon == addonName then
+        addon:Initialize(YourAddon_Settings_Global, YourAddon_Settings_Char)
+        
+        -- Your custom initialization code here
+        
+        YourAddon_Compartment_Func = function()
+            addon.OpenSettings()
+        end
+        
+        self:UnregisterEvent("ADDON_LOADED")
+    end
+end)
+```
+
+**Use this if you need to:**
+- Run custom code before or after initialization
+- Conditionally initialize based on game state
+- Handle multiple addons with interdependencies
 
 ## Localization
 

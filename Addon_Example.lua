@@ -73,22 +73,9 @@ function addon.OnPlayerEnteringWorld(event)
     addon.info("Player has entered the world!")
 end
 
--- Addon Lifecycle: Handle ADDON_LOADED event
-local frame = CreateFrame("Frame")
-frame:RegisterEvent("ADDON_LOADED")
-frame:SetScript("OnEvent", function(self, event, loadedAddon)
-    if loadedAddon == addonName then
-        -- Initialize addon with SavedVariables
-        addon:Initialize(MyAddon_Settings_Global, MyAddon_Settings_Char)
-        
-        -- Register addon compartment function (optional)
-        MyAddon_Compartment_Func = function()
-            addon.OpenSettings()
-        end
-        
-        self:UnregisterEvent("ADDON_LOADED")
-    end
-end)
+-- Addon Setup: Simplified initialization using addon.Setup()
+-- This automatically handles ADDON_LOADED event registration and initialization
+addon.Setup(MyAddon_Settings_Global, MyAddon_Settings_Char, "MyAddon_Compartment_Func")
 
 -- Localization
 -- All user-facing text should be localized. Keys are used in your config (e.g., name = "exampleHeader")

@@ -192,6 +192,46 @@ do -- Initialization
         callHook("AfterInitializeSavedVariables", returnValue)
         return returnValue
     end
+
+    -- Setup: Simplified initialization that automatically handles ADDON_LOADED event
+    function addon.Setup(savedVarsGlobal, savedVarsPerChar, compartmentFuncName)
+        savedVarsGlobal, savedVarsPerChar, compartmentFuncName = 
+            callHook("BeforeSetup", savedVarsGlobal, savedVarsPerChar, compartmentFuncName)
+        
+        -- Store the setup parameters for use when ADDON_LOADED fires
+        addon.setupConfig = {
+            savedVarsGlobal = savedVarsGlobal,
+            savedVarsPerChar = savedVarsPerChar,
+            compartmentFuncName = compartmentFuncName
+        }
+        
+        -- Register for ADDON_LOADED if not already registered
+        if not addon.setupEventFrame then
+            addon.setupEventFrame = CreateFrame("Frame")
+            addon.setupEventFrame:RegisterEvent("ADDON_LOADED")
+            addon.setupEventFrame:SetScript("OnEvent", function(self, event, loadedAddon)
+                if loadedAddon == addon.addonName then
+                    -- Initialize addon with SavedVariables
+                    addon:Initialize(addon.setupConfig.savedVarsGlobal, addon.setupConfig.savedVarsPerChar)
+                    
+                    -- Register addon compartment function if provided
+                    if addon.setupConfig.compartmentFuncName then
+                        _G[addon.setupConfig.compartmentFuncName] = function()
+                            addon.OpenSettings()
+                        end
+                    end
+                    
+                    -- Unregister the event
+                    self:UnregisterEvent("ADDON_LOADED")
+                    addon.setupEventFrame = nil
+                end
+            end)
+        end
+        
+        local returnValue = true
+        callHook("AfterSetup", returnValue)
+        return returnValue
+    end
 end
 
 do -- Registration functions
