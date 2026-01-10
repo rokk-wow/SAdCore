@@ -44,7 +44,8 @@
     These constraints enable external addons to hook into ANY addon.* function's execution
     for monitoring, modification, or extension purposes. Failure to follow these
     patterns breaks the extensibility contract of the framework.
-]] local SADCORE_MAJOR, SADCORE_MINOR = "SAdCore-1", 1
+]] -- SAdCore Library
+local SADCORE_MAJOR, SADCORE_MINOR = "SAdCore-1", 1
 local SAdCore, oldminor = LibStub:NewLibrary(SADCORE_MAJOR, SADCORE_MINOR)
 if not SAdCore then
     return
