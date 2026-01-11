@@ -1,3 +1,10 @@
+-- Your .toc file must load the SAdCore libraries in this order:
+--   Libs\SAdCore\Libs\LibSerialize\LibStub\LibStub.lua
+--   Libs\SAdCore\Libs\LibSerialize\LibSerialize.lua
+--   Libs\SAdCore\Libs\LibCompress\LibCompress.lua
+--   Libs\SAdCore\SAdCore.lua
+--   MyAddon.lua
+
 local addonName = ...
 local SAdCore = LibStub("SAdCore-1")
 local addon = SAdCore:GetAddon(addonName)

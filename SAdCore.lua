@@ -168,7 +168,9 @@ do -- Initialization
             }
         }
 
-        callHook(self, "LoadConfig")
+        if self.LoadConfig then
+            self:LoadConfig()
+        end
 
         self.author = self.author or "SAdCore Framework"
         self:InitializeSavedVariables(savedVarsGlobal, savedVarsPerChar)
@@ -518,7 +520,9 @@ do -- Settings Panels
     function addon:InitializeSettingsPanel()
         callHook(self, "BeforeInitializeSettingsPanel")
 
-        self.configureMainSettings()
+        if self.ConfigureMainSettings then
+            self:ConfigureMainSettings()
+        end
 
         self.settingsPanels = {}
         self.mainSettingsPanel = self:BuildMainSettingsPanel()
@@ -665,7 +669,7 @@ do -- Controls
             setValue = function(value)
                 tempValue = value
                 if onValueChange then
-                    onValueChange(value)
+                    onValueChange(addonInstance, value)
                 end
             end
         elseif name == "useCharacterSettings" then
@@ -675,7 +679,7 @@ do -- Controls
             setValue = function(value)
                 self.settingsChar.useCharacterSettings = value
                 if onValueChange then
-                    onValueChange(value)
+                    onValueChange(addonInstance, value)
                 end
             end
             if getValue() == nil then
@@ -696,7 +700,7 @@ do -- Controls
                 self.settings[panelKey] = self.settings[panelKey] or {}
                 self.settings[panelKey][name] = value
                 if onValueChange then
-                    onValueChange(value)
+                    onValueChange(addonInstance, value)
                 end
             end
         end
@@ -731,7 +735,7 @@ do -- Controls
         checkbox.CheckBox:SetChecked(currentValue)
 
         if onValueChange then
-            onValueChange(currentValue)
+            onValueChange(addonInstance, currentValue)
         end
 
         checkbox.CheckBox:SetScript("OnClick", function(checkboxFrame)
@@ -815,7 +819,7 @@ do -- Controls
                     UIDropDownMenu_SetSelectedValue(dropdown.Dropdown, self.value)
                     UIDropDownMenu_Initialize(dropdown.Dropdown, initializeFunc) -- Reinitialize to update checked states
                     if onValueChange then
-                        onValueChange(self.value)
+                        onValueChange(addonInstance, self.value)
                     end
                 end
                 info.checked = (savedValue == option.value)
@@ -827,7 +831,7 @@ do -- Controls
         UIDropDownMenu_SetSelectedValue(dropdown.Dropdown, currentValue or defaultValue)
 
         if onValueChange then
-            onValueChange(currentValue or defaultValue)
+            onValueChange(addonInstance, currentValue or defaultValue)
         end
 
         if not skipRefresh and persistent == true then
@@ -896,7 +900,7 @@ do -- Controls
         updateValue(currentValue or defaultValue)
 
         if onValueChange then
-            onValueChange(currentValue or defaultValue)
+            onValueChange(addonInstance, currentValue or defaultValue)
         end
 
         slider.Slider:RegisterCallback(MinimalSliderWithSteppersMixin.Event.OnValueChanged, function(_, value)
@@ -907,7 +911,7 @@ do -- Controls
             end
             updateValue(value)
             if onValueChange then
-                onValueChange(value)
+                onValueChange(addonInstance, value)
             end
         end)
 
@@ -958,7 +962,7 @@ do -- Controls
 
         button.Button:SetScript("OnClick", function(self)
             if onClick then
-                onClick()
+                onClick(addonInstance)
             end
         end)
 
@@ -1037,12 +1041,12 @@ do -- Controls
                 currentValue = hexColor
             end
             if onValueChange then
-                onValueChange(hexColor)
+                onValueChange(addonInstance, hexColor)
             end
         end
 
         if onValueChange then
-            onValueChange(currentValue or defaultValue)
+            onValueChange(addonInstance, currentValue or defaultValue)
         end
 
         colorPicker.ColorSwatch:SetScript("OnClick", function(self)
@@ -1105,6 +1109,7 @@ do -- Controls
     end
 
     function addon:AddDescription(parent, yOffset, panelKey, name, onClick)
+        local addonInstance = self
         parent, yOffset, panelKey, name, onClick = callHook(self, "BeforeAddDescription", parent, yOffset, panelKey, name,
             onClick)
 
@@ -1127,7 +1132,7 @@ do -- Controls
         if onClick then
             frame:EnableMouse(true)
             frame:SetScript("OnMouseDown", function(self)
-                onClick()
+                onClick(addonInstance)
             end)
             frame:SetScript("OnEnter", function(self)
                 fontString:SetTextColor(1, 0.82, 0, 1)
@@ -1188,7 +1193,7 @@ do -- Controls
                     local newValue = self:GetText()
                     addonInstance.settings[panelKey][name] = newValue
                     if onValueChange then
-                        onValueChange(newValue)
+                        onValueChange(addonInstance, newValue)
                     end
                 end
             end)
@@ -1197,7 +1202,7 @@ do -- Controls
                 if userInput then
                     local newValue = self:GetText()
                     if onValueChange then
-                        onValueChange(newValue)
+                        onValueChange(addonInstance, newValue)
                     end
                 end
             end)
@@ -1209,7 +1214,7 @@ do -- Controls
             if onClick then
                 control.Button:SetScript("OnClick", function(self)
                     local inputText = control.EditBox:GetText()
-                    onClick(inputText, control.EditBox)
+                    onClick(addonInstance, inputText, control.EditBox)
                 end)
             end
 
@@ -1265,7 +1270,7 @@ do -- Controls
             end
 
             if onValueChange then
-                onValueChange(initialValue)
+                onValueChange(addonInstance, initialValue)
             end
 
             control.refresh = function()

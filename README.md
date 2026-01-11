@@ -56,12 +56,15 @@ SAddons are:
    ## SavedVariablesPerCharacter: YourAddon_Settings_Char
    ## AddonCompartmentFunc: YourAddon_Compartment_Func
 
-   # Load SAdCore library
-   Libs\SAdCore\SAdCore.toc
+   Libs\SAdCore\Libs\LibSerialize\LibStub\LibStub.lua
+   Libs\SAdCore\Libs\LibSerialize\LibSerialize.lua
+   Libs\SAdCore\Libs\LibCompress\LibCompress.lua
+   Libs\SAdCore\SAdCore.lua
 
-   # Your addon files
    YourAddon.lua
    ```
+   
+   **Note:** You must load the individual library files in this specific order. Loading the nested `SAdCore.toc` doesn't work reliably.
 
 3. **Initialize your addon** in `YourAddon.lua`:
    ```lua
@@ -106,30 +109,31 @@ SAddons are:
 
 ## Quick Start: Creating a New Addon
 
-Starting from scratch? Here's the complete process:
-
 1. **Create your addon folder** in `World of Warcraft\_retail_\Interface\AddOns\`:
    ```
-   MyNewAddon/
+   MyAddon/
    ```
 
-2. **Create `MyNewAddon.toc`** with these required fields:
+2. **Create `MyAddon.toc`** with these required fields:
    ```toc
    ## Interface: 110207, 120000
-   ## Title: My New Addon
+   ## Title: My Addon
    ## Author: Your Name
    ## Version: 1.0
-   ## SavedVariables: MyNewAddon_Settings_Global
-   ## SavedVariablesPerCharacter: MyNewAddon_Settings_Char
-   ## AddonCompartmentFunc: MyNewAddon_Compartment_Func
+   ## SavedVariables: MyAddon_Settings_Global
+   ## SavedVariablesPerCharacter: MyAddon_Settings_Char
+   ## AddonCompartmentFunc: MyAddon_Compartment_Func
    
-   Libs\SAdCore\SAdCore.toc
-   MyNewAddon.lua
+   Libs\SAdCore\Libs\LibSerialize\LibStub\LibStub.lua
+   Libs\SAdCore\Libs\LibSerialize\LibSerialize.lua
+   Libs\SAdCore\Libs\LibCompress\LibCompress.lua
+   Libs\SAdCore\SAdCore.lua
+   MyAddon.lua
    ```
 
 3. **Clone SAdCore** into your addon's Libs folder:
    ```bash
-   cd MyNewAddon
+   cd MyAddon
    mkdir Libs
    cd Libs
    git clone https://github.com/rokk-wow/SAdCore.git
@@ -137,11 +141,11 @@ Starting from scratch? Here's the complete process:
 
 4. **Copy `Addon_Example.lua`** to your addon root and rename it:
    ```bash
-   copy Libs\SAdCore\Addon_Example.lua MyNewAddon.lua
+   copy Libs\SAdCore\Addon_Example.lua MyAddon.lua
    ```
 
-5. **Update `MyNewAddon.lua`**:
-   - Find/replace `MyAddon` with `MyNewAddon` (matches your SavedVariables names)
+5. **Update `MyAddon.lua`**:
+   - No need to change SavedVariables names (they already use `MyAddon`)
    - Customize settings in `addon.LoadConfig()`
    - Update localization strings in `addon.locale.enEN`
 
