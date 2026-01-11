@@ -73,8 +73,8 @@ SAddons are:
    local addon = SAdCore:GetAddon(addonName)
    
    -- Configure SavedVariables (must match your .toc declarations)
-   addon.savedVarsGlobal = YourAddon_Settings_Global
-   addon.savedVarsPerChar = YourAddon_Settings_Char
+   addon.savedVarsGlobalName = "YourAddon_Settings_Global"
+   addon.savedVarsPerCharName = "YourAddon_Settings_Char"
    addon.compartmentFuncName = "YourAddon_Compartment_Func"
    
    -- Configure your addon and settings panels
@@ -192,8 +192,8 @@ local SAdCore = LibStub("SAdCore-1")
 local addon = SAdCore:GetAddon(addonName)
 
 -- Saved Variable definitions and Addon Compartment Function must match what's in your .toc
-addon.savedVarsGlobal = YourAddon_Settings_Global
-addon.savedVarsPerChar = YourAddon_Settings_Char
+addon.savedVarsGlobalName = "YourAddon_Settings_Global"
+addon.savedVarsPerCharName = "YourAddon_Settings_Char"
 addon.compartmentFuncName = "YourAddon_Compartment_Func"
 
 -- Define your configuration

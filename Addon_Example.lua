@@ -1,17 +1,10 @@
--- Your .toc file must load the SAdCore libraries in this order:
---   Libs\SAdCore\Libs\LibSerialize\LibStub\LibStub.lua
---   Libs\SAdCore\Libs\LibSerialize\LibSerialize.lua
---   Libs\SAdCore\Libs\LibCompress\LibCompress.lua
---   Libs\SAdCore\SAdCore.lua
---   MyAddon.lua
-
 local addonName = ...
 local SAdCore = LibStub("SAdCore-1")
 local addon = SAdCore:GetAddon(addonName)
 
 -- Saved Variable definitions and Addon Compartment Function must match what's in your .toc
-addon.savedVarsGlobal = MyAddon_Settings_Global
-addon.savedVarsPerChar = MyAddon_Settings_Char
+addon.savedVarsGlobalName = "MyAddon_Settings_Global"
+addon.savedVarsPerCharName = "MyAddon_Settings_Char"
 addon.compartmentFuncName = "MyAddon_Compartment_Func"
 
 function addon:LoadConfig()

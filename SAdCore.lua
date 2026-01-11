@@ -87,9 +87,10 @@ function SAdCore:GetAddon(addonName)
         eventFrame:RegisterEvent("ADDON_LOADED")
         eventFrame:SetScript("OnEvent", function(self, event, loadedAddon)
             if loadedAddon == addonInstance.addonName then
-                -- Initialize addon with SavedVariables (read from addon properties)
-                local savedVarsGlobal = addonInstance.savedVarsGlobal
-                local savedVarsPerChar = addonInstance.savedVarsPerChar
+                -- Initialize addon with SavedVariables (look up by name in global scope)
+                -- addonInstance stores the variable NAMES as strings, we look them up in _G
+                local savedVarsGlobal = addonInstance.savedVarsGlobalName and _G[addonInstance.savedVarsGlobalName] or nil
+                local savedVarsPerChar = addonInstance.savedVarsPerCharName and _G[addonInstance.savedVarsPerCharName] or nil
                 
                 addonInstance:Initialize(savedVarsGlobal, savedVarsPerChar)
                 
