@@ -11,8 +11,8 @@
     hooked by external addons.
     
     1. HOOK REQUIREMENT - Every addon.* function MUST include:
-       - callHook("BeforeFunctionName", ...) as the first line
-       - callHook("AfterFunctionName", returnValue) before EVERY return statement
+       - callHook(self, "BeforeFunctionName", ...) as the first line
+       - callHook(self, "AfterFunctionName", returnValue) before EVERY return statement
        
     2. RETURN VALUE REQUIREMENT - Every addon.* function MUST explicitly return a value:
        - Success functions typically return true or the actual result
@@ -25,24 +25,24 @@
        - MUST explicitly return that value (false for errors, never nil)
        Example:
            if not data then
-               callHook("AfterFunctionName", false)
+               callHook(self, "AfterFunctionName", false)
                return false
            end
     
     4. STANDARD FUNCTION PATTERN:
-       function addon.FunctionName(params)
-           callHook("BeforeFunctionName", params)
+       function addon:FunctionName(params)
+           callHook(self, "BeforeFunctionName", params)
            
            -- Early return example
            if errorCondition then
-               callHook("AfterFunctionName", false)
+               callHook(self, "AfterFunctionName", false)
                return false
            end
            
            -- Function logic here
            
            local returnValue = true
-           callHook("AfterFunctionName", returnValue)
+           callHook(self, "AfterFunctionName", returnValue)
            return returnValue
        end
     
@@ -57,43 +57,72 @@ if not SAdCore then
 end -- Already loaded newer version
 
 SAdCore.addons = SAdCore.addons or {}
+SAdCore.prototype = SAdCore.prototype or {}
 
-function SAdCore:GetAddon(addonName)
-    if not self.addons[addonName] then
-        local addon = {}
-        addon.addonName = addonName
-        addon.core = self
-        self.addons[addonName] = addon
-    end
-    return self.addons[addonName]
-end
+-- addon will reference the prototype for all method definitions
+local addon = SAdCore.prototype
 
-local addonName, addon = ...
-addon = SAdCore:GetAddon(addonName)
-
-local function callHook(hookName, ...)
-    local hook = addon[hookName]
+-- callHook must receive the addon instance as first parameter
+local function callHook(addonInstance, hookName, ...)
+    local hook = addonInstance[hookName]
     if hook then
         return hook(...)
     end
     return ...
 end
 
+function SAdCore:GetAddon(addonName)
+    if not self.addons[addonName] then
+        local newAddon = {
+            addonName = addonName,
+            core = self
+        }
+        -- Set metatable so newAddon inherits methods from prototype
+        setmetatable(newAddon, { __index = self.prototype })
+        self.addons[addonName] = newAddon
+        
+        -- Automatically register for ADDON_LOADED event
+        local addonInstance = newAddon
+        local eventFrame = CreateFrame("Frame")
+        eventFrame:RegisterEvent("ADDON_LOADED")
+        eventFrame:SetScript("OnEvent", function(self, event, loadedAddon)
+            if loadedAddon == addonInstance.addonName then
+                -- Initialize addon with SavedVariables (read from addon properties)
+                local savedVarsGlobal = addonInstance.savedVarsGlobal
+                local savedVarsPerChar = addonInstance.savedVarsPerChar
+                
+                addonInstance:Initialize(savedVarsGlobal, savedVarsPerChar)
+                
+                -- Register addon compartment function if provided
+                if addonInstance.compartmentFuncName then
+                    _G[addonInstance.compartmentFuncName] = function()
+                        addonInstance:OpenSettings()
+                    end
+                end
+                
+                -- Unregister the event
+                self:UnregisterEvent("ADDON_LOADED")
+            end
+        end)
+    end
+    return self.addons[addonName]
+end
+
 do -- Initialization
 
-    function addon.Initialize(savedVarsGlobal, savedVarsPerChar)
-        callHook("BeforeInitialize", savedVarsGlobal, savedVarsPerChar)
+    function addon:Initialize(savedVarsGlobal, savedVarsPerChar)
+        callHook(self, "BeforeInitialize", savedVarsGlobal, savedVarsPerChar)
 
-        addon.config = addon.config or {}
-        addon.config.settings = addon.config.settings or {}
-        addon.sadCore = addon.sadCore or {}
-        addon.sadCore.version = "1.1"
-        addon.apiVersion = select(4, GetBuildInfo())
+        self.config = self.config or {}
+        self.config.settings = self.config.settings or {}
+        self.sadCore = self.sadCore or {}
+        self.sadCore.version = "1.1"
+        self.apiVersion = select(4, GetBuildInfo())
 
         local clientLocale = GetLocale()
-        addon.localization = addon.locale[clientLocale] or addon.locale.enEN
+        self.localization = self.locale[clientLocale] or self.locale.enEN
 
-        addon.config.ui = addon.config.ui or {
+        self.config.ui = self.config.ui or {
             spacing = {
                 panelTop = -25,
                 panelBottom = 20,
@@ -139,166 +168,169 @@ do -- Initialization
             }
         }
 
-        callHook("LoadConfig")
+        callHook(self, "LoadConfig")
 
-        addon.author = addon.author or "SAdCore Framework"
-        addon.InitializeSavedVariables(savedVarsGlobal, savedVarsPerChar)
+        self.author = self.author or "SAdCore Framework"
+        self:InitializeSavedVariables(savedVarsGlobal, savedVarsPerChar)
 
-        addon.LibSerialize = LibStub("LibSerialize")
-        addon.LibCompress = LibStub("LibCompress")
+        self.LibSerialize = LibStub("LibSerialize")
+        self.LibCompress = LibStub("LibCompress")
 
-        addon.CreateSlashCommand()
-        addon.InitializeSettingsPanel()
+        self:CreateSlashCommand()
+        self:InitializeSettingsPanel()
 
-        if addon.RegisterFunctions then
-            addon.RegisterFunctions()
+        if self.RegisterFunctions then
+            self:RegisterFunctions()
         end
 
-        if addon.settings.main.logVersion then
-            addon.info(addon.L("versionPrefix") .. addon.config.version)
+        if self.settings.main.logVersion then
+            self:info(self:L("versionPrefix") .. self.config.version)
         end
 
         local returnValue = true
-        callHook("AfterInitialize", returnValue)
+        callHook(self, "AfterInitialize", returnValue)
 
-        addon.initialized = true
+        self.initialized = true
 
         return returnValue
     end
 
-    function addon.InitializeSavedVariables(savedVarsGlobal, savedVarsPerChar)
+    function addon:InitializeSavedVariables(savedVarsGlobal, savedVarsPerChar)
         savedVarsGlobal, savedVarsPerChar =
-            callHook("BeforeInitializeSavedVariables", savedVarsGlobal, savedVarsPerChar)
+            callHook(self, "BeforeInitializeSavedVariables", savedVarsGlobal, savedVarsPerChar)
 
         if savedVarsGlobal then
-            addon.settingsGlobal = savedVarsGlobal
-            addon.settingsGlobal.main = addon.settingsGlobal.main or {}
+            self.settingsGlobal = savedVarsGlobal
+            self.settingsGlobal.main = self.settingsGlobal.main or {}
         else
-            addon.settingsGlobal = {}
-            addon.settingsGlobal.main = {}
+            self.settingsGlobal = {}
+            self.settingsGlobal.main = {}
         end
 
         if savedVarsPerChar then
-            addon.settingsChar = savedVarsPerChar
-            addon.settingsChar.main = addon.settingsChar.main or {}
+            self.settingsChar = savedVarsPerChar
+            self.settingsChar.main = self.settingsChar.main or {}
         else
-            addon.settingsChar = {}
-            addon.settingsChar.main = {}
+            self.settingsChar = {}
+            self.settingsChar.main = {}
         end
 
-        addon.settings = (addon.settingsChar.useCharacterSettings) and addon.settingsChar or addon.settingsGlobal
+        self.settings = (self.settingsChar.useCharacterSettings) and self.settingsChar or self.settingsGlobal
 
         local returnValue = true
-        callHook("AfterInitializeSavedVariables", returnValue)
+        callHook(self, "AfterInitializeSavedVariables", returnValue)
         return returnValue
     end
 
     -- Setup: Simplified initialization that automatically handles ADDON_LOADED event
-    function addon.Setup(savedVarsGlobal, savedVarsPerChar, compartmentFuncName)
+    function addon:Setup(savedVarsGlobal, savedVarsPerChar, compartmentFuncName)
+        local addonInstance = self
         savedVarsGlobal, savedVarsPerChar, compartmentFuncName = 
-            callHook("BeforeSetup", savedVarsGlobal, savedVarsPerChar, compartmentFuncName)
+            callHook(self, "BeforeSetup", savedVarsGlobal, savedVarsPerChar, compartmentFuncName)
         
         -- Store the setup parameters for use when ADDON_LOADED fires
-        addon.setupConfig = {
+        self.setupConfig = {
             savedVarsGlobal = savedVarsGlobal,
             savedVarsPerChar = savedVarsPerChar,
             compartmentFuncName = compartmentFuncName
         }
         
         -- Register for ADDON_LOADED if not already registered
-        if not addon.setupEventFrame then
-            addon.setupEventFrame = CreateFrame("Frame")
-            addon.setupEventFrame:RegisterEvent("ADDON_LOADED")
-            addon.setupEventFrame:SetScript("OnEvent", function(self, event, loadedAddon)
-                if loadedAddon == addon.addonName then
+        if not self.setupEventFrame then
+            self.setupEventFrame = CreateFrame("Frame")
+            self.setupEventFrame:RegisterEvent("ADDON_LOADED")
+            self.setupEventFrame:SetScript("OnEvent", function(self, event, loadedAddon)
+                if loadedAddon == addonInstance.addonName then
                     -- Initialize addon with SavedVariables
-                    addon:Initialize(addon.setupConfig.savedVarsGlobal, addon.setupConfig.savedVarsPerChar)
+                    addonInstance:Initialize(addonInstance.setupConfig.savedVarsGlobal, addonInstance.setupConfig.savedVarsPerChar)
                     
                     -- Register addon compartment function if provided
-                    if addon.setupConfig.compartmentFuncName then
-                        _G[addon.setupConfig.compartmentFuncName] = function()
-                            addon.OpenSettings()
+                    if addonInstance.setupConfig.compartmentFuncName then
+                        _G[addonInstance.setupConfig.compartmentFuncName] = function()
+                            addonInstance:OpenSettings()
                         end
                     end
                     
                     -- Unregister the event
                     self:UnregisterEvent("ADDON_LOADED")
-                    addon.setupEventFrame = nil
+                    addonInstance.setupEventFrame = nil
                 end
             end)
         end
         
         local returnValue = true
-        callHook("AfterSetup", returnValue)
+        callHook(self, "AfterSetup", returnValue)
         return returnValue
     end
 end
 
 do -- Registration functions
 
-    function addon.RegisterEvent(eventName, callback)
-        eventName, callback = callHook("BeforeRegisterEvent", eventName, callback)
+    function addon:RegisterEvent(eventName, callback)
+        local addonInstance = self
+        eventName, callback = callHook(self, "BeforeRegisterEvent", eventName, callback)
 
-        if addon.eventFrame == nil then
-            addon.eventFrame = CreateFrame("Frame", nil, UIParent)
-            addon.eventCallbacks = {}
-            addon.eventFrame:SetScript("OnEvent", function(self, event, ...)
-                local eventCallback = addon.eventCallbacks[event]
+        if self.eventFrame == nil then
+            self.eventFrame = CreateFrame("Frame", nil, UIParent)
+            self.eventCallbacks = {}
+            self.eventFrame:SetScript("OnEvent", function(self, event, ...)
+                local eventCallback = addonInstance.eventCallbacks[event]
                 if eventCallback then
                     eventCallback(event, ...)
                 end
             end)
         end
 
-        addon.eventFrame:RegisterEvent(eventName)
-        addon.eventCallbacks[eventName] = callback
+        self.eventFrame:RegisterEvent(eventName)
+        self.eventCallbacks[eventName] = callback
 
         local returnValue = true
-        callHook("AfterRegisterEvent", returnValue)
+        callHook(self, "AfterRegisterEvent", returnValue)
         return returnValue
     end
 
-    function addon.RegisterSlashCommand(command, callback)
-        command, callback = callHook("BeforeRegisterSlashCommand", command, callback)
+    function addon:RegisterSlashCommand(command, callback)
+        command, callback = callHook(self, "BeforeRegisterSlashCommand", command, callback)
 
-        if not addon.slashCommands then
-            addon.slashCommands = {}
+        if not self.slashCommands then
+            self.slashCommands = {}
         end
 
-        addon.slashCommands[command:lower()] = callback
+        self.slashCommands[command:lower()] = callback
 
         local returnValue = true
-        callHook("AfterRegisterSlashCommand", returnValue)
+        callHook(self, "AfterRegisterSlashCommand", returnValue)
         return returnValue
     end
 
-    function addon.CreateSlashCommand()
-        callHook("BeforeCreateSlashCommand")
+    function addon:CreateSlashCommand()
+        local addonInstance = self
+        callHook(self, "BeforeCreateSlashCommand")
 
-        addon.slashCommands = {}
-        addon.slashCommands["inspect"] = addon.InspectCommand
+        self.slashCommands = {}
+        self.slashCommands["inspect"] = function(...) return addonInstance:InspectCommand(...) end
 
-        local slashCommandName = addonName:upper()
-        _G["SLASH_" .. slashCommandName .. "1"] = "/" .. addonName:lower()
+        local slashCommandName = self.addonName:upper()
+        _G["SLASH_" .. slashCommandName .. "1"] = "/" .. self.addonName:lower()
         SlashCmdList[slashCommandName] = function(message)
             local command, rest = message:match("^(%S*)%s*(.-)$")
             command = command and command:lower() or ""
 
-            if command ~= "" and addon.slashCommands[command] then
+            if command ~= "" and addonInstance.slashCommands[command] then
                 local params = {}
                 if rest and rest ~= "" then
                     for param in rest:gmatch("%S+") do
                         table.insert(params, param)
                     end
                 end
-                addon.slashCommands[command](unpack(params))
+                addonInstance.slashCommands[command](unpack(params))
             else
-                addon.OpenSettings()
+                addonInstance:OpenSettings()
             end
         end
 
         local returnValue = true
-        callHook("AfterCreateSlashCommand", returnValue)
+        callHook(self, "AfterCreateSlashCommand", returnValue)
         return returnValue
     end
 end
@@ -307,34 +339,39 @@ do -- Zone Management
 
     addon.zones = {"arena", "battleground", "dungeon", "raid", "world"}
 
-    function addon.RegisterZone(zoneName, enterCallback)
-        zoneName, enterCallback = callHook("BeforeRegisterZone", zoneName, enterCallback)
+    function addon:RegisterZone(zoneName, enterCallback)
+        zoneName, enterCallback = callHook(self, "BeforeRegisterZone", zoneName, enterCallback)
 
-        if not addon.zoneCallbacks then
-            addon.zoneCallbacks = {}
-            addon.currentZone = nil
-            addon.previousZone = nil
+        if not self.zoneCallbacks then
+            self.zoneCallbacks = {}
+            self.currentZone = nil
+            self.previousZone = nil
 
-            addon.RegisterEvent("PLAYER_ENTERING_WORLD", addon.HandleZoneChange)
-            addon.RegisterEvent("ZONE_CHANGED_NEW_AREA", addon.HandleZoneChange)
-            addon.RegisterEvent("PVP_MATCH_ACTIVE", addon.HandleZoneChange)
-            addon.RegisterEvent("ARENA_PREP_OPPONENT_SPECIALIZATIONS", addon.HandleZoneChange)
-            addon.RegisterEvent("ARENA_OPPONENT_UPDATE", addon.HandleZoneChange)
-            addon.RegisterEvent("PVP_MATCH_INACTIVE", addon.HandleZoneChange)
-            addon.RegisterEvent("PLAYER_ROLES_ASSIGNED", addon.HandleZoneChange)
+            -- Create closure that calls HandleZoneChange with correct self
+            local handleZoneChangeCallback = function(event, ...)
+                self:HandleZoneChange()
+            end
+
+            self:RegisterEvent("PLAYER_ENTERING_WORLD", handleZoneChangeCallback)
+            self:RegisterEvent("ZONE_CHANGED_NEW_AREA", handleZoneChangeCallback)
+            self:RegisterEvent("PVP_MATCH_ACTIVE", handleZoneChangeCallback)
+            self:RegisterEvent("ARENA_PREP_OPPONENT_SPECIALIZATIONS", handleZoneChangeCallback)
+            self:RegisterEvent("ARENA_OPPONENT_UPDATE", handleZoneChangeCallback)
+            self:RegisterEvent("PVP_MATCH_INACTIVE", handleZoneChangeCallback)
+            self:RegisterEvent("PLAYER_ROLES_ASSIGNED", handleZoneChangeCallback)
         end
 
         local normalizedZoneName = zoneName:upper()
 
-        addon.zoneCallbacks[normalizedZoneName] = enterCallback
+        self.zoneCallbacks[normalizedZoneName] = enterCallback
 
         local returnValue = true
-        callHook("AfterRegisterZone", returnValue)
+        callHook(self, "AfterRegisterZone", returnValue)
         return returnValue
     end
 
-    function addon.GetCurrentZone()
-        callHook("BeforeGetCurrentZone")
+    function addon:GetCurrentZone()
+        callHook(self, "BeforeGetCurrentZone")
 
         local zoneName = "WORLD"
         local instanceName, instanceType = GetInstanceInfo()
@@ -352,52 +389,52 @@ do -- Zone Management
         end
 
         local returnValue = zoneName
-        callHook("AfterGetCurrentZone", returnValue)
+        callHook(self, "AfterGetCurrentZone", returnValue)
         return returnValue
     end
 
-    function addon.HandleZoneChange()
-        callHook("BeforeHandleZoneChange")
+    function addon:HandleZoneChange()
+        callHook(self, "BeforeHandleZoneChange")
 
-        if not addon.initialized then
+        if not self.initialized then
             local returnValue = false
-            callHook("AfterHandleZoneChange", returnValue)
+            callHook(self, "AfterHandleZoneChange", returnValue)
             return returnValue
         end
 
-        local newZone = addon.GetCurrentZone()
+        local newZone = self:GetCurrentZone()
 
-        if newZone == addon.currentZone then
+        if newZone == self.currentZone then
             local returnValue = false
-            callHook("AfterHandleZoneChange", returnValue)
+            callHook(self, "AfterHandleZoneChange", returnValue)
             return returnValue
         end
 
-        addon.previousZone = addon.currentZone
-        addon.currentZone = newZone
+        self.previousZone = self.currentZone
+        self.currentZone = newZone
 
-        if addon.zoneCallbacks and addon.zoneCallbacks[addon.currentZone] then
-            local zoneName = addon.currentZone:lower()
-            if addon.L then
-                addon.coreInfo(addon.L("entering") .. " " .. addon.L(zoneName) .. ".")
+        if self.zoneCallbacks and self.zoneCallbacks[self.currentZone] then
+            local zoneName = self.currentZone:lower()
+            if self.L then
+                addon.coreInfo(self:L("entering") .. " " .. self:L(zoneName) .. ".")
             end
 
-            local enterCallback = addon.zoneCallbacks[addon.currentZone]
+            local enterCallback = self.zoneCallbacks[self.currentZone]
             if enterCallback and type(enterCallback) == "function" then
                 enterCallback()
             end
         end
 
         local returnValue = true
-        callHook("AfterHandleZoneChange", returnValue)
+        callHook(self, "AfterHandleZoneChange", returnValue)
         return returnValue
     end
 end
 
 do -- Settings Panels
 
-    function addon.ConfigureMainSettings()
-        callHook("BeforeConfigureMainSettings")
+    function addon:ConfigureMainSettings()
+        callHook(self, "BeforeConfigureMainSettings")
 
         local headerControls = {}
         local footerControls = {{
@@ -420,20 +457,20 @@ do -- Settings Panels
             type = "checkbox",
             name = "useCharacterSettings",
             default = false,
-            onValueChange = addon.UpdateActiveSettings,
+            onValueChange = function(value) self:UpdateActiveSettings(value) end,
             skipRefresh = true
         }, {
             type = "inputBox",
             name = "loadSettings",
             buttonText = "loadSettingsButton",
             onClick = function(inputText, editBox)
-                addon.ImportSettings(inputText)
+                self:ImportSettings(inputText)
                 editBox:SetText("")
             end
         }, {
             type = "button",
             name = "shareSettings",
-            onClick = addon.ExportSettings
+            onClick = function() self:ExportSettings() end
         }, {
             type = "description",
             name = "tagline"
@@ -441,12 +478,12 @@ do -- Settings Panels
             type = "description",
             name = "author",
             onClick = function()
-                addon.ShowDialog({
+                self:ShowDialog({
                     title = "authorTitle",
                     controls = {{
                         type = "inputBox",
                         name = "authorName",
-                        default = addon.author,
+                        default = self.author,
                         highlightText = true
                     }}
                 })
@@ -454,15 +491,15 @@ do -- Settings Panels
         }}
 
         local main = {}
-        main.title = (addon.config.settings.main and addon.config.settings.main.title) or addonName
+        main.title = (self.config.settings.main and self.config.settings.main.title) or self.addonName
         main.controls = {}
 
         for _, control in ipairs(headerControls) do
             table.insert(main.controls, control)
         end
 
-        if addon.config.settings.main and addon.config.settings.main.controls then
-            for _, control in ipairs(addon.config.settings.main.controls) do
+        if self.config.settings.main and self.config.settings.main.controls then
+            for _, control in ipairs(self.config.settings.main.controls) do
                 table.insert(main.controls, control)
             end
         end
@@ -471,26 +508,26 @@ do -- Settings Panels
             table.insert(main.controls, control)
         end
 
-        addon.config.settings.main = main
+        self.config.settings.main = main
 
         local returnValue = true
-        callHook("AfterConfigureMainSettings", returnValue)
+        callHook(self, "AfterConfigureMainSettings", returnValue)
         return returnValue
     end
 
-    function addon.InitializeSettingsPanel()
-        callHook("BeforeInitializeSettingsPanel")
+    function addon:InitializeSettingsPanel()
+        callHook(self, "BeforeInitializeSettingsPanel")
 
-        addon.ConfigureMainSettings()
+        self.configureMainSettings()
 
-        addon.settingsPanels = {}
-        addon.mainSettingsPanel = addon.BuildMainSettingsPanel()
-        addon.settingsCategory = Settings.RegisterCanvasLayoutCategory(addon.mainSettingsPanel, addonName)
-        Settings.RegisterAddOnCategory(addon.settingsCategory)
-        addon.settingsPanels["main"] = addon.mainSettingsPanel
+        self.settingsPanels = {}
+        self.mainSettingsPanel = self:BuildMainSettingsPanel()
+        self.settingsCategory = Settings.RegisterCanvasLayoutCategory(self.mainSettingsPanel, self.addonName)
+        Settings.RegisterAddOnCategory(self.settingsCategory)
+        self.settingsPanels["main"] = self.mainSettingsPanel
 
         local sortedPanelKeys = {}
-        for panelKey in pairs(addon.config.settings) do
+        for panelKey in pairs(self.config.settings) do
             if panelKey ~= "main" then
                 table.insert(sortedPanelKeys, panelKey)
             end
@@ -498,39 +535,39 @@ do -- Settings Panels
         table.sort(sortedPanelKeys)
 
         for _, panelKey in ipairs(sortedPanelKeys) do
-            local panelConfig = addon.config.settings[panelKey]
-            local childPanel = addon.BuildChildSettingsPanel(panelKey)
+            local panelConfig = self.config.settings[panelKey]
+            local childPanel = self:BuildChildSettingsPanel(panelKey)
             if childPanel then
-                local categoryName = addon.L(panelConfig.title or panelKey)
-                Settings.RegisterCanvasLayoutSubcategory(addon.settingsCategory, childPanel, categoryName)
-                addon.settingsPanels[panelKey] = childPanel
+                local categoryName = self:L(panelConfig.title or panelKey)
+                Settings.RegisterCanvasLayoutSubcategory(self.settingsCategory, childPanel, categoryName)
+                self.settingsPanels[panelKey] = childPanel
             end
         end
 
         local returnValue = true
-        callHook("AfterInitializeSettingsPanel", returnValue)
+        callHook(self, "AfterInitializeSettingsPanel", returnValue)
         return returnValue
     end
 
-    function addon.BuildSettingsPanelHelper(panelKey, config)
-        panelKey, config = callHook("BeforeBuildSettingsPanelHelper", panelKey, config)
+    function addon:BuildSettingsPanelHelper(panelKey, config)
+        panelKey, config = callHook(self, "BeforeBuildSettingsPanelHelper", panelKey, config)
 
         if not config then
-            callHook("AfterBuildSettingsPanelHelper", false)
+            callHook(self, "AfterBuildSettingsPanelHelper", false)
             return false
         end
 
-        local panel = addon.CreateSettingsPanel(panelKey)
-        local titleText = panelKey == "main" and (addon.L(config.title) or addon.L(addonName)) or addon.L(config.title)
+        local panel = self:CreateSettingsPanel(panelKey)
+        local titleText = panelKey == "main" and (self:L(config.title) or self:L(self.addonName)) or self:L(config.title)
         panel.Title:SetText(titleText)
         panel.controlRefreshers = {}
 
         local content = panel.ScrollFrame.Content
-        local yOffset = addon.config.ui.spacing.panelTop
+        local yOffset = self.config.ui.spacing.panelTop
 
         if config.controls then
             for _, controlConfig in ipairs(config.controls) do
-                local control, newYOffset = addon.AddControl(content, yOffset, panelKey, controlConfig)
+                local control, newYOffset = self:AddControl(content, yOffset, panelKey, controlConfig)
                 if control and control.refresh then
                     table.insert(panel.controlRefreshers, control.refresh)
                 end
@@ -538,34 +575,34 @@ do -- Settings Panels
             end
         end
 
-        content:SetHeight(math.abs(yOffset) + addon.config.ui.spacing.panelBottom)
+        content:SetHeight(math.abs(yOffset) + self.config.ui.spacing.panelBottom)
 
-        callHook("AfterBuildSettingsPanelHelper", panel)
+        callHook(self, "AfterBuildSettingsPanelHelper", panel)
         return panel
     end
 
-    function addon.BuildMainSettingsPanel()
-        callHook("BeforeBuildMainSettingsPanel")
+    function addon:BuildMainSettingsPanel()
+        callHook(self, "BeforeBuildMainSettingsPanel")
 
-        local panel = addon.BuildSettingsPanelHelper("main", addon.config.settings.main)
+        local panel = self:BuildSettingsPanelHelper("main", self.config.settings.main)
 
-        callHook("AfterBuildMainSettingsPanel", panel)
+        callHook(self, "AfterBuildMainSettingsPanel", panel)
         return panel
     end
 
-    function addon.BuildChildSettingsPanel(panelKey)
-        panelKey = callHook("BeforeBuildChildSettingsPanel", panelKey)
+    function addon:BuildChildSettingsPanel(panelKey)
+        panelKey = callHook(self, "BeforeBuildChildSettingsPanel", panelKey)
 
-        local panel = addon.BuildSettingsPanelHelper(panelKey, addon.config.settings[panelKey])
+        local panel = self:BuildSettingsPanelHelper(panelKey, self.config.settings[panelKey])
 
-        callHook("AfterBuildChildSettingsPanel", panel)
+        callHook(self, "AfterBuildChildSettingsPanel", panel)
         return panel
     end
 
-    function addon.CreateSettingsPanel(panelKey)
-        panelKey = callHook("BeforeCreateSettingsPanel", panelKey)
+    function addon:CreateSettingsPanel(panelKey)
+        panelKey = callHook(self, "BeforeCreateSettingsPanel", panelKey)
 
-        local panel = CreateFrame("Frame", addonName .. "_" .. panelKey .. "_Panel")
+        local panel = CreateFrame("Frame", self.addonName .. "_" .. panelKey .. "_Panel")
         panel.panelKey = panelKey
 
         panel.Title = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightHuge")
@@ -587,37 +624,36 @@ do -- Settings Panels
         panel.ScrollFrame.Content:SetSize(600, 1)
         panel.ScrollFrame:SetScrollChild(panel.ScrollFrame.Content)
 
-        callHook("AfterCreateSettingsPanel", panel)
+        callHook(self, "AfterCreateSettingsPanel", panel)
         return panel
     end
 end
 
 do -- Controls
 
-    function addon.AddHeader(parent, yOffset, panelKey, name)
-        parent, yOffset, panelKey, name = callHook("BeforeAddHeader", parent, yOffset, panelKey, name)
+    function addon:AddHeader(parent, yOffset, panelKey, name)
+        parent, yOffset, panelKey, name = callHook(self, "BeforeAddHeader", parent, yOffset, panelKey, name)
 
         local header = CreateFrame("Frame", nil, parent)
         header:SetHeight(50)
-        header:SetPoint("TOPLEFT", addon.config.ui.spacing.contentLeft, yOffset)
-        header:SetPoint("TOPRIGHT", addon.config.ui.spacing.contentRight, yOffset)
+        header:SetPoint("TOPLEFT", self.config.ui.spacing.contentLeft, yOffset)
+        header:SetPoint("TOPRIGHT", self.config.ui.spacing.contentRight, yOffset)
 
         header.Title = header:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
         header.Title:SetPoint("BOTTOMLEFT", 7, 4)
         header.Title:SetJustifyH("LEFT")
         header.Title:SetJustifyV("BOTTOM")
-        header.Title:SetText(addon.L(name))
+        header.Title:SetText(self:L(name))
 
-        local newYOffset = yOffset - addon.config.ui.spacing.headerHeight
-        callHook("AfterAddHeader", header, newYOffset)
+        local newYOffset = yOffset - self.config.ui.spacing.headerHeight
+        callHook(self, "AfterAddHeader", header, newYOffset)
         return header, newYOffset
     end
 
-    function addon.AddCheckbox(parent, yOffset, panelKey, name, defaultValue, onValueChange, skipRefresh, persistent,
-        onLoad)
-        parent, yOffset, panelKey, name, defaultValue, onValueChange, skipRefresh, persistent, onLoad = callHook(
-            "BeforeAddCheckbox", parent, yOffset, panelKey, name, defaultValue, onValueChange, skipRefresh, persistent,
-            onLoad)
+    function addon:AddCheckbox(parent, yOffset, panelKey, name, defaultValue, onValueChange, skipRefresh, persistent)
+        local addonInstance = self
+        parent, yOffset, panelKey, name, defaultValue, onValueChange, skipRefresh, persistent = callHook(self,
+            "BeforeAddCheckbox", parent, yOffset, panelKey, name, defaultValue, onValueChange, skipRefresh, persistent)
 
         local getValue, setValue
 
@@ -634,31 +670,31 @@ do -- Controls
             end
         elseif name == "useCharacterSettings" then
             getValue = function()
-                return addon.settingsChar.useCharacterSettings
+                return self.settingsChar.useCharacterSettings
             end
             setValue = function(value)
-                addon.settingsChar.useCharacterSettings = value
+                self.settingsChar.useCharacterSettings = value
                 if onValueChange then
                     onValueChange(value)
                 end
             end
             if getValue() == nil then
-                addon.settingsChar.useCharacterSettings = defaultValue
+                self.settingsChar.useCharacterSettings = defaultValue
             end
         else
-            addon.settings[panelKey] = addon.settings[panelKey] or {}
-            if addon.settings[panelKey][name] == nil then
-                addon.settings[panelKey][name] = defaultValue
+            self.settings[panelKey] = self.settings[panelKey] or {}
+            if self.settings[panelKey][name] == nil then
+                self.settings[panelKey][name] = defaultValue
             end
 
             getValue = function()
-                addon.settings[panelKey] = addon.settings[panelKey] or {}
-                return addon.settings[panelKey][name]
+                self.settings[panelKey] = self.settings[panelKey] or {}
+                return self.settings[panelKey][name]
             end
 
             setValue = function(value)
-                addon.settings[panelKey] = addon.settings[panelKey] or {}
-                addon.settings[panelKey][name] = value
+                self.settings[panelKey] = self.settings[panelKey] or {}
+                self.settings[panelKey][name] = value
                 if onValueChange then
                     onValueChange(value)
                 end
@@ -667,15 +703,15 @@ do -- Controls
 
         local checkbox = CreateFrame("Frame", nil, parent)
         checkbox:SetHeight(32)
-        checkbox:SetPoint("TOPLEFT", addon.config.ui.spacing.controlLeft, yOffset)
-        checkbox:SetPoint("TOPRIGHT", addon.config.ui.spacing.controlRight, yOffset)
+        checkbox:SetPoint("TOPLEFT", self.config.ui.spacing.controlLeft, yOffset)
+        checkbox:SetPoint("TOPRIGHT", self.config.ui.spacing.controlRight, yOffset)
 
         checkbox.Text = checkbox:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         checkbox.Text:SetSize(205, 0)
         checkbox.Text:SetPoint("LEFT", 17, 0)
         checkbox.Text:SetJustifyH("LEFT")
         checkbox.Text:SetWordWrap(false)
-        checkbox.Text:SetText(addon.L(name))
+        checkbox.Text:SetText(self:L(name))
 
         checkbox.CheckBox = CreateFrame("CheckButton", nil, checkbox)
         checkbox.CheckBox:SetSize(26, 26)
@@ -694,8 +730,8 @@ do -- Controls
         end
         checkbox.CheckBox:SetChecked(currentValue)
 
-        if onLoad then
-            onLoad(currentValue)
+        if onValueChange then
+            onValueChange(currentValue)
         end
 
         checkbox.CheckBox:SetScript("OnClick", function(checkboxFrame)
@@ -713,11 +749,11 @@ do -- Controls
         end
 
         local tooltipKey = name .. "Tooltip"
-        local tooltipText = addon.L(tooltipKey)
+        local tooltipText = addonInstance:L(tooltipKey)
         if tooltipText ~= "[" .. tooltipKey .. "]" then
             checkbox.CheckBox:SetScript("OnEnter", function(self)
                 GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-                GameTooltip:SetText(addon.L(name), 1, 1, 1)
+                GameTooltip:SetText(addonInstance:L(name), 1, 1, 1)
                 GameTooltip:AddLine(tooltipText, nil, nil, nil, true)
                 GameTooltip:Show()
             end)
@@ -726,52 +762,53 @@ do -- Controls
             end)
         end
 
-        local newYOffset = yOffset - addon.config.ui.spacing.controlHeight
-        callHook("AfterAddCheckbox", checkbox, newYOffset)
+        local newYOffset = yOffset - self.config.ui.spacing.controlHeight
+        callHook(self, "AfterAddCheckbox", checkbox, newYOffset)
         return checkbox, newYOffset
     end
 
-    function addon.AddDropdown(parent, yOffset, panelKey, name, defaultValue, options, onValueChange, skipRefresh,
-        persistent, onLoad)
-        parent, yOffset, panelKey, name, defaultValue, options, onValueChange, skipRefresh, persistent, onLoad =
-            callHook("BeforeAddDropdown", parent, yOffset, panelKey, name, defaultValue, options, onValueChange,
-                skipRefresh, persistent, onLoad)
+    function addon:AddDropdown(parent, yOffset, panelKey, name, defaultValue, options, onValueChange, skipRefresh,
+        persistent)
+        local addonInstance = self
+        parent, yOffset, panelKey, name, defaultValue, options, onValueChange, skipRefresh, persistent =
+            callHook(self, "BeforeAddDropdown", parent, yOffset, panelKey, name, defaultValue, options, onValueChange,
+                skipRefresh, persistent)
 
         local currentValue = defaultValue
 
         if persistent == true then
-            addon.settings[panelKey] = addon.settings[panelKey] or {}
-            if addon.settings[panelKey][name] == nil then
-                addon.settings[panelKey][name] = defaultValue
+            self.settings[panelKey] = self.settings[panelKey] or {}
+            if self.settings[panelKey][name] == nil then
+                self.settings[panelKey][name] = defaultValue
             end
-            currentValue = addon.settings[panelKey][name]
+            currentValue = self.settings[panelKey][name]
         end
 
         local dropdown = CreateFrame("Frame", nil, parent)
         dropdown:SetHeight(32)
-        dropdown:SetPoint("TOPLEFT", addon.config.ui.spacing.controlLeft, yOffset)
-        dropdown:SetPoint("TOPRIGHT", addon.config.ui.spacing.controlRight, yOffset)
+        dropdown:SetPoint("TOPLEFT", self.config.ui.spacing.controlLeft, yOffset)
+        dropdown:SetPoint("TOPRIGHT", self.config.ui.spacing.controlRight, yOffset)
 
         dropdown.Text = dropdown:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         dropdown.Text:SetSize(205, 0)
         dropdown.Text:SetPoint("LEFT", 17, 0)
         dropdown.Text:SetJustifyH("LEFT")
         dropdown.Text:SetWordWrap(false)
-        dropdown.Text:SetText(addon.L(name))
+        dropdown.Text:SetText(self:L(name))
 
         dropdown.Dropdown = CreateFrame("Frame", nil, dropdown, "UIDropDownMenuTemplate")
         dropdown.Dropdown:SetPoint("LEFT", 200, 3)
-        UIDropDownMenu_SetWidth(dropdown.Dropdown, addon.config.ui.dropdown.width)
+        UIDropDownMenu_SetWidth(dropdown.Dropdown, self.config.ui.dropdown.width)
 
         local initializeFunc = function(dropdownFrame, level)
-            local savedValue = persistent and addon.settings[panelKey][name] or currentValue
+            local savedValue = persistent and addonInstance.settings[panelKey][name] or currentValue
             for _, option in ipairs(options) do
                 local info = UIDropDownMenu_CreateInfo()
-                info.text = addon.L(option.label)
+                info.text = addonInstance:L(option.label)
                 info.value = option.value
                 info.func = function(self)
                     if persistent == true then
-                        addon.settings[panelKey][name] = self.value
+                        addonInstance.settings[panelKey][name] = self.value
                     else
                         currentValue = self.value
                     end
@@ -789,14 +826,14 @@ do -- Controls
         UIDropDownMenu_Initialize(dropdown.Dropdown, initializeFunc)
         UIDropDownMenu_SetSelectedValue(dropdown.Dropdown, currentValue or defaultValue)
 
-        if onLoad then
-            onLoad(currentValue or defaultValue)
+        if onValueChange then
+            onValueChange(currentValue or defaultValue)
         end
 
         if not skipRefresh and persistent == true then
             dropdown.refresh = function()
-                addon.settings[panelKey] = addon.settings[panelKey] or {}
-                local value = addon.settings[panelKey][name]
+                addonInstance.settings[panelKey] = addonInstance.settings[panelKey] or {}
+                local value = addonInstance.settings[panelKey][name]
                 if value == nil then
                     value = defaultValue
                 end
@@ -804,38 +841,39 @@ do -- Controls
             end
         end
 
-        local newYOffset = yOffset - addon.config.ui.spacing.controlHeight
-        callHook("AfterAddDropdown", dropdown, newYOffset)
+        local newYOffset = yOffset - self.config.ui.spacing.controlHeight
+        callHook(self, "AfterAddDropdown", dropdown, newYOffset)
         return dropdown, newYOffset
     end
 
-    function addon.AddSlider(parent, yOffset, panelKey, name, defaultValue, minValue, maxValue, step, onValueChange,
-        skipRefresh, persistent, onLoad)
-        parent, yOffset, panelKey, name, defaultValue, minValue, maxValue, step, onValueChange, skipRefresh, persistent, onLoad =
-            callHook("BeforeAddSlider", parent, yOffset, panelKey, name, defaultValue, minValue, maxValue, step,
-                onValueChange, skipRefresh, persistent, onLoad)
+    function addon:AddSlider(parent, yOffset, panelKey, name, defaultValue, minValue, maxValue, step, onValueChange,
+        skipRefresh, persistent)
+        local addonInstance = self
+        parent, yOffset, panelKey, name, defaultValue, minValue, maxValue, step, onValueChange, skipRefresh, persistent =
+            callHook(self, "BeforeAddSlider", parent, yOffset, panelKey, name, defaultValue, minValue, maxValue, step,
+                onValueChange, skipRefresh, persistent)
 
         local currentValue = defaultValue
 
         if persistent == true then
-            addon.settings[panelKey] = addon.settings[panelKey] or {}
-            if addon.settings[panelKey][name] == nil then
-                addon.settings[panelKey][name] = defaultValue
+            self.settings[panelKey] = self.settings[panelKey] or {}
+            if self.settings[panelKey][name] == nil then
+                self.settings[panelKey][name] = defaultValue
             end
-            currentValue = addon.settings[panelKey][name]
+            currentValue = self.settings[panelKey][name]
         end
 
         local slider = CreateFrame("Frame", nil, parent)
         slider:SetHeight(32)
-        slider:SetPoint("TOPLEFT", addon.config.ui.spacing.controlLeft, yOffset)
-        slider:SetPoint("TOPRIGHT", addon.config.ui.spacing.controlRight, yOffset)
+        slider:SetPoint("TOPLEFT", self.config.ui.spacing.controlLeft, yOffset)
+        slider:SetPoint("TOPRIGHT", self.config.ui.spacing.controlRight, yOffset)
 
         slider.Text = slider:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         slider.Text:SetSize(205, 0)
         slider.Text:SetPoint("LEFT", 17, 0)
         slider.Text:SetJustifyH("LEFT")
         slider.Text:SetWordWrap(false)
-        slider.Text:SetText(addon.L(name))
+        slider.Text:SetText(self:L(name))
 
         slider.Value = slider:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         slider.Value:SetPoint("LEFT", 430, 0)
@@ -847,7 +885,7 @@ do -- Controls
 
         local steps = (maxValue - minValue) / step
         slider.Slider:Init(currentValue or defaultValue, minValue, maxValue, steps)
-        slider.Slider:SetWidth(addon.config.ui.slider.width)
+        slider.Slider:SetWidth(self.config.ui.slider.width)
 
         local function updateValue(value)
             if value == 0 then
@@ -857,13 +895,13 @@ do -- Controls
         end
         updateValue(currentValue or defaultValue)
 
-        if onLoad then
-            onLoad(currentValue or defaultValue)
+        if onValueChange then
+            onValueChange(currentValue or defaultValue)
         end
 
         slider.Slider:RegisterCallback(MinimalSliderWithSteppersMixin.Event.OnValueChanged, function(_, value)
             if persistent == true then
-                addon.settings[panelKey][name] = value
+                addonInstance.settings[panelKey][name] = value
             else
                 currentValue = value
             end
@@ -875,8 +913,8 @@ do -- Controls
 
         if not skipRefresh and persistent == true then
             slider.refresh = function()
-                addon.settings[panelKey] = addon.settings[panelKey] or {}
-                local value = addon.settings[panelKey][name]
+                addonInstance.settings[panelKey] = addonInstance.settings[panelKey] or {}
+                local value = addonInstance.settings[panelKey][name]
                 if value == nil then
                     value = defaultValue
                 end
@@ -886,11 +924,11 @@ do -- Controls
         end
 
         local tooltipKey = name .. "Tooltip"
-        local tooltipText = addon.L(tooltipKey)
+        local tooltipText = addonInstance:L(tooltipKey)
         if tooltipText ~= "[" .. tooltipKey .. "]" then
             slider.Slider:SetScript("OnEnter", function(self)
                 GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-                GameTooltip:SetText(addon.L(name), 1, 1, 1)
+                GameTooltip:SetText(addonInstance:L(name), 1, 1, 1)
                 GameTooltip:AddLine(tooltipText, nil, nil, nil, true)
                 GameTooltip:Show()
             end)
@@ -899,23 +937,24 @@ do -- Controls
             end)
         end
 
-        local newYOffset = yOffset - addon.config.ui.spacing.controlHeight
-        callHook("AfterAddSlider", slider, newYOffset)
+        local newYOffset = yOffset - self.config.ui.spacing.controlHeight
+        callHook(self, "AfterAddSlider", slider, newYOffset)
         return slider, newYOffset
     end
 
-    function addon.AddButton(parent, yOffset, panelKey, name, onClick)
-        parent, yOffset, panelKey, name, onClick = callHook("BeforeAddButton", parent, yOffset, panelKey, name, onClick)
+    function addon:AddButton(parent, yOffset, panelKey, name, onClick)
+        local addonInstance = self
+        parent, yOffset, panelKey, name, onClick = callHook(self, "BeforeAddButton", parent, yOffset, panelKey, name, onClick)
 
         local button = CreateFrame("Frame", nil, parent)
         button:SetHeight(40)
-        button:SetPoint("TOPLEFT", addon.config.ui.spacing.contentLeft, yOffset)
-        button:SetPoint("TOPRIGHT", addon.config.ui.spacing.contentRight, yOffset)
+        button:SetPoint("TOPLEFT", self.config.ui.spacing.contentLeft, yOffset)
+        button:SetPoint("TOPRIGHT", self.config.ui.spacing.contentRight, yOffset)
 
         button.Button = CreateFrame("Button", nil, button, "UIPanelButtonTemplate")
         button.Button:SetSize(120, 22)
         button.Button:SetPoint("LEFT", 35, 0)
-        button.Button:SetText(addon.L(name))
+        button.Button:SetText(self:L(name))
 
         button.Button:SetScript("OnClick", function(self)
             if onClick then
@@ -924,11 +963,11 @@ do -- Controls
         end)
 
         local tooltipKey = name .. "Tooltip"
-        local tooltipText = addon.L(tooltipKey)
+        local tooltipText = addonInstance:L(tooltipKey)
         if tooltipText ~= "[" .. tooltipKey .. "]" then
             button.Button:SetScript("OnEnter", function(self)
                 GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-                GameTooltip:SetText(addon.L(name), 1, 1, 1)
+                GameTooltip:SetText(addonInstance:L(name), 1, 1, 1)
                 GameTooltip:AddLine(tooltipText, nil, nil, nil, true)
                 GameTooltip:Show()
             end)
@@ -937,38 +976,38 @@ do -- Controls
             end)
         end
 
-        local newYOffset = yOffset - addon.config.ui.spacing.buttonHeight
-        callHook("AfterAddButton", button, newYOffset)
+        local newYOffset = yOffset - self.config.ui.spacing.buttonHeight
+        callHook(self, "AfterAddButton", button, newYOffset)
         return button, newYOffset
     end
 
-    function addon.AddColorPicker(parent, yOffset, panelKey, name, defaultValue, onValueChange, skipRefresh, persistent,
-        onLoad)
-        parent, yOffset, panelKey, name, defaultValue, onValueChange, skipRefresh, persistent, onLoad = callHook(
+    function addon:AddColorPicker(parent, yOffset, panelKey, name, defaultValue, onValueChange, skipRefresh, persistent)
+        local addonInstance = self
+        parent, yOffset, panelKey, name, defaultValue, onValueChange, skipRefresh, persistent = callHook(self,
             "BeforeAddColorPicker", parent, yOffset, panelKey, name, defaultValue, onValueChange, skipRefresh,
-            persistent, onLoad)
+            persistent)
 
         local currentValue = defaultValue
 
         if persistent == true then
-            addon.settings[panelKey] = addon.settings[panelKey] or {}
-            if addon.settings[panelKey][name] == nil then
-                addon.settings[panelKey][name] = defaultValue
+            self.settings[panelKey] = self.settings[panelKey] or {}
+            if self.settings[panelKey][name] == nil then
+                self.settings[panelKey][name] = defaultValue
             end
-            currentValue = addon.settings[panelKey][name]
+            currentValue = self.settings[panelKey][name]
         end
 
         local colorPicker = CreateFrame("Frame", nil, parent)
         colorPicker:SetHeight(32)
-        colorPicker:SetPoint("TOPLEFT", addon.config.ui.spacing.controlLeft, yOffset)
-        colorPicker:SetPoint("TOPRIGHT", addon.config.ui.spacing.controlRight, yOffset)
+        colorPicker:SetPoint("TOPLEFT", self.config.ui.spacing.controlLeft, yOffset)
+        colorPicker:SetPoint("TOPRIGHT", self.config.ui.spacing.controlRight, yOffset)
 
         colorPicker.Text = colorPicker:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         colorPicker.Text:SetSize(205, 0)
         colorPicker.Text:SetPoint("LEFT", 17, 0)
         colorPicker.Text:SetJustifyH("LEFT")
         colorPicker.Text:SetWordWrap(false)
-        colorPicker.Text:SetText(addon.L(name))
+        colorPicker.Text:SetText(self:L(name))
 
         colorPicker.ColorSwatch = CreateFrame("Button", nil, colorPicker)
         colorPicker.ColorSwatch:SetSize(26, 26)
@@ -979,7 +1018,7 @@ do -- Controls
         colorPicker.ColorSwatch.Background:SetAllPoints()
 
         colorPicker.ColorSwatch.Color = colorPicker.ColorSwatch:CreateTexture(nil, "BORDER")
-        local r, g, b, a = addon.hexToRGB(currentValue or defaultValue)
+        local r, g, b, a = self:hexToRGB(currentValue or defaultValue)
         colorPicker.ColorSwatch.Color:SetColorTexture(r, g, b, a)
         colorPicker.ColorSwatch.Color:SetPoint("TOPLEFT", 2, -2)
         colorPicker.ColorSwatch.Color:SetPoint("BOTTOMRIGHT", -2, 2)
@@ -990,10 +1029,10 @@ do -- Controls
         colorPicker.ColorSwatch.Border:SetDrawLayer("OVERLAY", 0)
 
         local function updateColor(hexColor)
-            local r, g, b, a = addon.hexToRGB(hexColor)
+            local r, g, b, a = self:hexToRGB(hexColor)
             colorPicker.ColorSwatch.Color:SetColorTexture(r, g, b, a)
             if persistent == true then
-                addon.settings[panelKey][name] = hexColor
+                self.settings[panelKey][name] = hexColor
             else
                 currentValue = hexColor
             end
@@ -1002,28 +1041,28 @@ do -- Controls
             end
         end
 
-        if onLoad then
-            onLoad(currentValue or defaultValue)
+        if onValueChange then
+            onValueChange(currentValue or defaultValue)
         end
 
         colorPicker.ColorSwatch:SetScript("OnClick", function(self)
-            local r, g, b, a = addon.hexToRGB(persistent == true and addon.settings[panelKey][name] or currentValue or
+            local r, g, b, a = self:hexToRGB(persistent == true and self.settings[panelKey][name] or currentValue or
                                                   defaultValue)
 
             ColorPickerFrame:SetupColorPickerAndShow({
                 swatchFunc = function()
                     local newR, newG, newB = ColorPickerFrame:GetColorRGB()
                     local newA = ColorPickerFrame:GetColorAlpha()
-                    local hexColor = addon.rgbToHex(newR, newG, newB, newA)
+                    local hexColor = self:rgbToHex(newR, newG, newB, newA)
                     updateColor(hexColor)
                 end,
                 cancelFunc = function()
-                    updateColor(addon.rgbToHex(r, g, b, a))
+                    updateColor(self:rgbToHex(r, g, b, a))
                 end,
                 opacityFunc = function()
                     local newR, newG, newB = ColorPickerFrame:GetColorRGB()
                     local newA = ColorPickerFrame:GetColorAlpha()
-                    local hexColor = addon.rgbToHex(newR, newG, newB, newA)
+                    local hexColor = self:rgbToHex(newR, newG, newB, newA)
                     updateColor(hexColor)
                 end,
                 r = r,
@@ -1036,22 +1075,22 @@ do -- Controls
 
         if not skipRefresh and persistent == true then
             colorPicker.refresh = function()
-                addon.settings[panelKey] = addon.settings[panelKey] or {}
-                local value = addon.settings[panelKey][name]
+                self.settings[panelKey] = self.settings[panelKey] or {}
+                local value = self.settings[panelKey][name]
                 if value == nil then
                     value = defaultValue
                 end
-                local r, g, b, a = addon.hexToRGB(value)
+                local r, g, b, a = self:hexToRGB(value)
                 colorPicker.ColorSwatch.Color:SetColorTexture(r, g, b, a)
             end
         end
 
         local tooltipKey = name .. "Tooltip"
-        local tooltipText = addon.L(tooltipKey)
+        local tooltipText = self:L(tooltipKey)
         if tooltipText ~= "[" .. tooltipKey .. "]" then
             colorPicker.ColorSwatch:SetScript("OnEnter", function(self)
                 GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-                GameTooltip:SetText(addon.L(name), 1, 1, 1)
+                GameTooltip:SetText(self:L(name), 1, 1, 1)
                 GameTooltip:AddLine(tooltipText, nil, nil, nil, true)
                 GameTooltip:Show()
             end)
@@ -1060,27 +1099,27 @@ do -- Controls
             end)
         end
 
-        local newYOffset = yOffset - addon.config.ui.spacing.controlHeight
-        callHook("AfterAddColorPicker", colorPicker, newYOffset)
+        local newYOffset = yOffset - self.config.ui.spacing.controlHeight
+        callHook(self, "AfterAddColorPicker", colorPicker, newYOffset)
         return colorPicker, newYOffset
     end
 
-    function addon.AddDescription(parent, yOffset, panelKey, name, onClick)
-        parent, yOffset, panelKey, name, onClick = callHook("BeforeAddDescription", parent, yOffset, panelKey, name,
+    function addon:AddDescription(parent, yOffset, panelKey, name, onClick)
+        parent, yOffset, panelKey, name, onClick = callHook(self, "BeforeAddDescription", parent, yOffset, panelKey, name,
             onClick)
 
         local frame = CreateFrame("Frame", nil, parent)
-        frame:SetPoint("TOPLEFT", addon.config.ui.spacing.controlLeft, yOffset)
-        frame:SetPoint("TOPRIGHT", addon.config.ui.spacing.controlRight, yOffset)
+        frame:SetPoint("TOPLEFT", self.config.ui.spacing.controlLeft, yOffset)
+        frame:SetPoint("TOPRIGHT", self.config.ui.spacing.controlRight, yOffset)
         frame:SetHeight(32)
 
         local fontString = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        fontString:SetPoint("LEFT", addon.config.ui.spacing.textInset, 0)
-        fontString:SetPoint("RIGHT", -addon.config.ui.spacing.textInset, 0)
+        fontString:SetPoint("LEFT", self.config.ui.spacing.textInset, 0)
+        fontString:SetPoint("RIGHT", -self.config.ui.spacing.textInset, 0)
         fontString:SetJustifyH("LEFT")
         fontString:SetJustifyV("TOP")
         fontString:SetWordWrap(true)
-        fontString:SetText(addon.L(name))
+        fontString:SetText(self:L(name))
 
         local stringHeight = fontString:GetStringHeight()
         frame:SetHeight(math.max(32, stringHeight))
@@ -1098,28 +1137,29 @@ do -- Controls
             end)
         end
 
-        local newYOffset = yOffset - math.max(32, stringHeight) - addon.config.ui.spacing.descriptionPadding
-        callHook("AfterAddDescription", frame, newYOffset)
+        local newYOffset = yOffset - math.max(32, stringHeight) - self.config.ui.spacing.descriptionPadding
+        callHook(self, "AfterAddDescription", frame, newYOffset)
         return frame, newYOffset
     end
 
-    function addon.AddInputBox(parent, yOffset, panelKey, name, default, highlightText, buttonText, onClick,
-        onValueChange, persistent, onLoad)
-        parent, yOffset, panelKey, name, default, highlightText, buttonText, onClick, onValueChange, persistent, onLoad =
-            callHook("BeforeAddInputBox", parent, yOffset, panelKey, name, default, highlightText, buttonText, onClick,
-                onValueChange, persistent, onLoad)
+    function addon:AddInputBox(parent, yOffset, panelKey, name, default, highlightText, buttonText, onClick,
+        onValueChange, persistent)
+        local addonInstance = self
+        parent, yOffset, panelKey, name, default, highlightText, buttonText, onClick, onValueChange, persistent =
+            callHook(self, "BeforeAddInputBox", parent, yOffset, panelKey, name, default, highlightText, buttonText, onClick,
+                onValueChange, persistent)
 
         local control = CreateFrame("Frame", nil, parent)
         control:SetHeight(32)
-        control:SetPoint("TOPLEFT", addon.config.ui.spacing.controlLeft, yOffset)
-        control:SetPoint("TOPRIGHT", addon.config.ui.spacing.controlRight, yOffset)
+        control:SetPoint("TOPLEFT", self.config.ui.spacing.controlLeft, yOffset)
+        control:SetPoint("TOPRIGHT", self.config.ui.spacing.controlRight, yOffset)
 
         control.Text = control:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         control.Text:SetSize(205, 0)
         control.Text:SetPoint("LEFT", 17, 0)
         control.Text:SetJustifyH("LEFT")
         control.Text:SetWordWrap(false)
-        control.Text:SetText(addon.L(name))
+        control.Text:SetText(self:L(name))
 
         control.EditBox = CreateFrame("EditBox", nil, control)
         control.EditBox:SetSize(220, 22)
@@ -1138,15 +1178,15 @@ do -- Controls
         local shouldPersist = persistent == true
 
         if shouldPersist then
-            addon.settings[panelKey] = addon.settings[panelKey] or {}
-            if addon.settings[panelKey][name] == nil then
-                addon.settings[panelKey][name] = default
+            self.settings[panelKey] = self.settings[panelKey] or {}
+            if self.settings[panelKey][name] == nil then
+                self.settings[panelKey][name] = default
             end
 
             control.EditBox:SetScript("OnTextChanged", function(self, userInput)
                 if userInput then
                     local newValue = self:GetText()
-                    addon.settings[panelKey][name] = newValue
+                    addonInstance.settings[panelKey][name] = newValue
                     if onValueChange then
                         onValueChange(newValue)
                     end
@@ -1174,7 +1214,7 @@ do -- Controls
             end
 
             local tooltipKey = name .. "Tooltip"
-            local tooltipText = addon.L(tooltipKey)
+            local tooltipText = addonInstance:L(tooltipKey)
             if tooltipText ~= "[" .. tooltipKey .. "]" then
                 control.Button:SetScript("OnEnter", function(self)
                     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
@@ -1206,7 +1246,7 @@ do -- Controls
 
         control.EditBox:SetScript("OnShow", function(self)
             if shouldPersist then
-                local savedValue = addon.settings[panelKey][name]
+                local savedValue = addonInstance.settings[panelKey][name]
                 if savedValue and self:GetText() == "" then
                     self:SetText(savedValue)
                     self:SetCursorPosition(0)
@@ -1218,18 +1258,18 @@ do -- Controls
         end)
 
         if shouldPersist then
-            local initialValue = addon.settings[panelKey][name] or default
+            local initialValue = self.settings[panelKey][name] or default
             if initialValue then
                 control.EditBox:SetText(initialValue)
                 control.EditBox:SetCursorPosition(0)
             end
 
-            if onLoad then
-                onLoad(initialValue)
+            if onValueChange then
+                onValueChange(initialValue)
             end
 
             control.refresh = function()
-                local value = addon.settings[panelKey][name] or default
+                local value = addonInstance.settings[panelKey][name] or default
                 if value then
                     control.EditBox:SetText(value)
                     control.EditBox:SetCursorPosition(0)
@@ -1242,18 +1282,19 @@ do -- Controls
             end
         end
 
-        local newYOffset = yOffset - addon.config.ui.spacing.controlHeight
-        callHook("AfterAddInputBox", control, newYOffset)
+        local newYOffset = yOffset - self.config.ui.spacing.controlHeight
+        callHook(self, "AfterAddInputBox", control, newYOffset)
         return control, newYOffset
     end
 
-    function addon.ShowDialog(dialogOptions)
-        dialogOptions = callHook("BeforeShowDialog", dialogOptions)
+    function addon:ShowDialog(dialogOptions)
+        local addonInstance = self
+        dialogOptions = callHook(self, "BeforeShowDialog", dialogOptions)
 
-        addon.debug("ShowDialog called")
+        self:debug("ShowDialog called")
         local dialog = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
 
-        local uiCfg = addon.config.ui
+        local uiCfg = self.config.ui
         local width = dialogOptions.width or uiCfg.dialog.defaultWidth
         dialog:SetWidth(width)
         dialog:SetPoint("CENTER")
@@ -1271,7 +1312,7 @@ do -- Controls
 
         local title = dialog:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         title:SetPoint("TOP", 0, uiCfg.dialog.titleOffset)
-        title:SetText(addon.L(dialogOptions.title))
+        title:SetText(self:L(dialogOptions.title))
 
         local content = CreateFrame("Frame", nil, dialog)
         content:SetPoint("TOPLEFT", uiCfg.spacing.contentLeft, uiCfg.dialog.contentTop)
@@ -1281,7 +1322,7 @@ do -- Controls
         local inputBoxControls = {}
         if dialogOptions.controls then
             for _, controlConfig in ipairs(dialogOptions.controls) do
-                local control, newYOffset = addon.AddControl(content, yOffset, "dialog", controlConfig)
+                local control, newYOffset = self:AddControl(content, yOffset, "dialog", controlConfig)
                 if controlConfig.type == "inputBox" and controlConfig.highlightText and control then
                     table.insert(inputBoxControls, control)
                 end
@@ -1298,7 +1339,7 @@ do -- Controls
         local closeButton = CreateFrame("Button", nil, dialog, "UIPanelButtonTemplate")
         closeButton:SetSize(uiCfg.dialog.buttonSize.width, uiCfg.dialog.buttonSize.height)
         closeButton:SetPoint("BOTTOM", 0, uiCfg.dialog.buttonOffset)
-        closeButton:SetText(addon.L("close"))
+        closeButton:SetText(self:L("close"))
         closeButton:SetScript("OnClick", function()
             dialog:Hide()
             if dialogOptions.onClose then
@@ -1324,72 +1365,70 @@ do -- Controls
             end
         end
 
-        callHook("AfterShowDialog", dialog)
+        callHook(self, "AfterShowDialog", dialog)
         return dialog
     end
 
-    function addon.AddControl(parent, yOffset, panelKey, controlConfig)
+    function addon:AddControl(parent, yOffset, panelKey, controlConfig)
         parent, yOffset, panelKey, controlConfig =
-            callHook("BeforeAddControl", parent, yOffset, panelKey, controlConfig)
+            callHook(self, "BeforeAddControl", parent, yOffset, panelKey, controlConfig)
 
         local controlType = controlConfig.type
 
         if controlType == "header" then
-            local control, newYOffset = addon.AddHeader(parent, yOffset, panelKey, controlConfig.name)
-            callHook("AfterAddControl", control, newYOffset)
+            local control, newYOffset = self:AddHeader(parent, yOffset, panelKey, controlConfig.name)
+            callHook(self, "AfterAddControl", control, newYOffset)
             return control, newYOffset
 
         elseif controlType == "checkbox" then
-            local control, newYOffset = addon.AddCheckbox(parent, yOffset, panelKey, controlConfig.name,
-                controlConfig.default, controlConfig.onValueChange, controlConfig.skipRefresh, controlConfig.persistent,
-                controlConfig.onLoad)
-            callHook("AfterAddControl", control, newYOffset)
+            local control, newYOffset = self:AddCheckbox(parent, yOffset, panelKey, controlConfig.name,
+                controlConfig.default, controlConfig.onValueChange, controlConfig.skipRefresh, controlConfig.persistent)
+            callHook(self, "AfterAddControl", control, newYOffset)
             return control, newYOffset
 
         elseif controlType == "dropdown" then
-            local control, newYOffset = addon.AddDropdown(parent, yOffset, panelKey, controlConfig.name,
+            local control, newYOffset = self:AddDropdown(parent, yOffset, panelKey, controlConfig.name,
                 controlConfig.default, controlConfig.options, controlConfig.onValueChange, controlConfig.skipRefresh,
-                controlConfig.persistent, controlConfig.onLoad)
-            callHook("AfterAddControl", control, newYOffset)
+                controlConfig.persistent)
+            callHook(self, "AfterAddControl", control, newYOffset)
             return control, newYOffset
 
         elseif controlType == "slider" then
-            local control, newYOffset = addon.AddSlider(parent, yOffset, panelKey, controlConfig.name,
+            local control, newYOffset = self:AddSlider(parent, yOffset, panelKey, controlConfig.name,
                 controlConfig.default, controlConfig.min, controlConfig.max, controlConfig.step,
-                controlConfig.onValueChange, controlConfig.skipRefresh, controlConfig.persistent, controlConfig.onLoad)
-            callHook("AfterAddControl", control, newYOffset)
+                controlConfig.onValueChange, controlConfig.skipRefresh, controlConfig.persistent)
+            callHook(self, "AfterAddControl", control, newYOffset)
             return control, newYOffset
 
         elseif controlType == "button" then
-            local control, newYOffset = addon.AddButton(parent, yOffset, panelKey, controlConfig.name,
+            local control, newYOffset = self:AddButton(parent, yOffset, panelKey, controlConfig.name,
                 controlConfig.onClick)
-            callHook("AfterAddControl", control, newYOffset)
+            callHook(self, "AfterAddControl", control, newYOffset)
             return control, newYOffset
 
         elseif controlType == "description" then
-            local control, newYOffset = addon.AddDescription(parent, yOffset, panelKey, controlConfig.name,
+            local control, newYOffset = self:AddDescription(parent, yOffset, panelKey, controlConfig.name,
                 controlConfig.onClick)
-            callHook("AfterAddControl", control, newYOffset)
+            callHook(self, "AfterAddControl", control, newYOffset)
             return control, newYOffset
 
         elseif controlType == "inputBox" then
-            local buttonText = controlConfig.buttonText and addon.L(controlConfig.buttonText) or nil
-            local control, newYOffset = addon.AddInputBox(parent, yOffset, panelKey, controlConfig.name,
+            local buttonText = controlConfig.buttonText and self:L(controlConfig.buttonText) or nil
+            local control, newYOffset = self:AddInputBox(parent, yOffset, panelKey, controlConfig.name,
                 controlConfig.default, controlConfig.highlightText, buttonText, controlConfig.onClick,
-                controlConfig.onValueChange, controlConfig.persistent, controlConfig.onLoad)
-            callHook("AfterAddControl", control, newYOffset)
+                controlConfig.onValueChange, controlConfig.persistent)
+            callHook(self, "AfterAddControl", control, newYOffset)
             return control, newYOffset
 
         elseif controlType == "colorPicker" then
-            local control, newYOffset = addon.AddColorPicker(parent, yOffset, panelKey, controlConfig.name,
-                controlConfig.default, controlConfig.onValueChange, controlConfig.skipRefresh, controlConfig.persistent,
-                controlConfig.onLoad)
-            callHook("AfterAddControl", control, newYOffset)
+            local control, newYOffset = self:AddColorPicker(parent, yOffset, panelKey, controlConfig.name,
+                controlConfig.default, controlConfig.onValueChange, controlConfig.skipRefresh, controlConfig.persistent)
+            callHook(self, "AfterAddControl", control, newYOffset)
             return control, newYOffset
 
         else
-            addon.debug("Unknown control type: " .. tostring(controlType))
-            callHook("AfterAddControl", false, yOffset)
+            self:debug("Unknown control type: " .. tostring(controlType))
+            callHook(self, "AfterAddControl", false, yOffset)
             return false, yOffset
         end
     end
@@ -1397,20 +1436,20 @@ end
 
 do -- Utility Functions
 
-    function addon.InspectCommand(frameName)
-        frameName = callHook("BeforeInspectCommand", frameName)
+    function addon:InspectCommand(frameName)
+        frameName = callHook(self, "BeforeInspectCommand", frameName)
 
         if not frameName or frameName == "" then
-            addon.info("Usage: /" .. addonName:lower() .. " inspect <frameName>")
+            self:info("Usage: /" .. self.addonName:lower() .. " inspect <frameName>")
             local returnValue = false
-            callHook("AfterInspectCommand", returnValue)
+            callHook(self, "AfterInspectCommand", returnValue)
             return returnValue
         end
 
-        local inspectionResult = addon.InspectFrame(frameName)
+        local inspectionResult = self:InspectFrame(frameName)
 
         if inspectionResult then
-            addon.ShowDialog({
+            self:ShowDialog({
                 title = frameName,
                 controls = {{
                     type = "inputBox",
@@ -1420,22 +1459,22 @@ do -- Utility Functions
                 }}
             })
             local returnValue = true
-            callHook("AfterInspectCommand", returnValue)
+            callHook(self, "AfterInspectCommand", returnValue)
             return returnValue
         else
-            addon.error("Frame not found: " .. frameName)
+            self:error("Frame not found: " .. frameName)
             local returnValue = false
-            callHook("AfterInspectCommand", returnValue)
+            callHook(self, "AfterInspectCommand", returnValue)
             return returnValue
         end
     end
 
-    function addon.InspectFrame(frameName)
-        frameName = callHook("BeforeInspectFrame", frameName)
+    function addon:InspectFrame(frameName)
+        frameName = callHook(self, "BeforeInspectFrame", frameName)
 
         local frame = _G[frameName]
         if not frame then
-            callHook("AfterInspectFrame", false)
+            callHook(self, "AfterInspectFrame", false)
             return false
         end
 
@@ -1605,11 +1644,11 @@ do -- Utility Functions
         addLine("-- " .. string.rep("=", 80))
 
         local result = table.concat(output, "\n")
-        callHook("AfterInspectFrame", result)
+        callHook(self, "AfterInspectFrame", result)
         return result
     end
 
-    function addon.hexToRGB(hex)
+    function addon:hexToRGB(hex)
         hex = hex:gsub("#", "")
         local r = tonumber(hex:sub(1, 2), 16) / 255
         local g = tonumber(hex:sub(3, 4), 16) / 255
@@ -1621,7 +1660,7 @@ do -- Utility Functions
         return r, g, b, a
     end
 
-    function addon.rgbToHex(r, g, b, a)
+    function addon:rgbToHex(r, g, b, a)
         r = math.floor(r * 255 + 0.5)
         g = math.floor(g * 255 + 0.5)
         b = math.floor(b * 255 + 0.5)
@@ -1632,30 +1671,25 @@ do -- Utility Functions
         return string.format("#%02X%02X%02X", r, g, b)
     end
 
-    function addon.OpenSettings()
-        callHook("BeforeOpenSettings")
+    function addon:OpenSettings()
+        callHook(self, "BeforeOpenSettings")
 
         if type(Settings) == "table" and type(Settings.OpenToCategory) == "function" then
-            if addon.settingsCategory then
-                if addon.apiVersion < 120000 then
-                    Settings.OpenToCategory(addon.settingsCategory)
-                end
-                if addon.settingsCategory.ID then
-                    Settings.OpenToCategory(addon.settingsCategory.ID)
-                end
+            if self.settingsCategory and self.settingsCategory.ID then
+                Settings.OpenToCategory(self.settingsCategory.ID)
             end
         end
 
         local returnValue = true
-        callHook("AfterOpenSettings", returnValue)
+        callHook(self, "AfterOpenSettings", returnValue)
         return returnValue
     end
 
-    function addon.L(key)
-        key = callHook("BeforeL", key)
+    function addon:L(key)
+        key = callHook(self, "BeforeL", key)
 
         if not key then
-            callHook("AfterL", "")
+            callHook(self, "AfterL", "")
             return ""
         end
 
@@ -1663,66 +1697,66 @@ do -- Utility Functions
         key = key:gsub("[^%w_]", "")
 
         if key == "author" then
-            callHook("AfterL", addon.author)
-            return addon.author
+            callHook(self, "AfterL", self.author)
+            return self.author
         end
-        if not addon.localization then
+        if not self.localization then
             local returnValue = "[" .. key .. "]"
-            callHook("AfterL", returnValue)
+            callHook(self, "AfterL", returnValue)
             return returnValue
         end
-        local result = addon.localization[key] or ("[" .. key .. "]")
-        callHook("AfterL", result)
+        local result = self.localization[key] or ("[" .. key .. "]")
+        callHook(self, "AfterL", result)
         return result
     end
 
-    function addon.coreInfo(text)
+    function addon:coreInfo(text)
         print("\124cffDB09FE" .. "SAdCore" .. ": " .. "\124cffBAFF1A" .. tostring(text))
     end
 
-    function addon.coreDebug(text)
-        if addon.settings and addon.settings.main and addon.settings.main.enableDebugging then
+    function addon:coreDebug(text)
+        if self.settings and self.settings.main and self.settings.main.enableDebugging then
             print("\124cffDB09FE" .. "SAdCore" .. " Debug: " .. "\124cffBAFF1A" .. tostring(text))
         end
     end
 
-    function addon.info(text)
-        text = callHook("BeforeInfo", text)
+    function addon:info(text)
+        text = callHook(self, "BeforeInfo", text)
 
-        print("\124cffDB09FE" .. addonName .. ": " .. "\124cffBAFF1A" .. tostring(text))
+        print("\124cffDB09FE" .. self.addonName .. ": " .. "\124cffBAFF1A" .. tostring(text))
 
         local returnValue = true
-        callHook("AfterInfo", returnValue)
+        callHook(self, "AfterInfo", returnValue)
         return returnValue
     end
 
-    function addon.error(text)
-        text = callHook("BeforeError", text)
+    function addon:error(text)
+        text = callHook(self, "BeforeError", text)
 
-        print("\124cffDB09FE" .. addonName .. ": " .. "\124cffBAFF1A" .. tostring(text))
+        print("\124cffDB09FE" .. self.addonName .. ": " .. "\124cffBAFF1A" .. tostring(text))
 
         local returnValue = true
-        callHook("AfterError", returnValue)
+        callHook(self, "AfterError", returnValue)
         return returnValue
     end
 
-    function addon.debug(text)
-        text = callHook("BeforeDebug", text)
+    function addon:debug(text)
+        text = callHook(self, "BeforeDebug", text)
 
-        if addon.settings and addon.settings.main and addon.settings.main.enableDebugging then
-            print("\124cffDB09FE" .. addonName .. " Debug: " .. "\124cffBAFF1A" .. tostring(text))
+        if self.settings and self.settings.main and self.settings.main.enableDebugging then
+            print("\124cffDB09FE" .. self.addonName .. " Debug: " .. "\124cffBAFF1A" .. tostring(text))
         end
 
         local returnValue = true
-        callHook("AfterDebug", returnValue)
+        callHook(self, "AfterDebug", returnValue)
         return returnValue
     end
 
-    function addon.RefreshSettingsPanels()
-        callHook("BeforeRefreshSettingsPanels")
+    function addon:RefreshSettingsPanels()
+        callHook(self, "BeforeRefreshSettingsPanels")
 
-        if addon.settingsPanels then
-            for panelKey, panel in pairs(addon.settingsPanels) do
+        if self.settingsPanels then
+            for panelKey, panel in pairs(self.settingsPanels) do
                 if panel and panel.controlRefreshers then
                     for _, refreshFunc in ipairs(panel.controlRefreshers) do
                         refreshFunc()
@@ -1732,52 +1766,52 @@ do -- Utility Functions
         end
 
         local returnValue = true
-        callHook("AfterRefreshSettingsPanels", returnValue)
+        callHook(self, "AfterRefreshSettingsPanels", returnValue)
         return returnValue
     end
 
-    function addon.UpdateActiveSettings(useCharacter)
-        useCharacter = callHook("BeforeUpdateActiveSettings", useCharacter)
-        addon.settings = useCharacter and addon.settingsChar or addon.settingsGlobal
+    function addon:UpdateActiveSettings(useCharacter)
+        useCharacter = callHook(self, "BeforeUpdateActiveSettings", useCharacter)
+        self.settings = useCharacter and self.settingsChar or self.settingsGlobal
         local profileType = useCharacter and "Character" or "Global"
-        addon.debug("Profile switched to: " .. profileType)
-        addon.RefreshSettingsPanels()
+        self:debug("Profile switched to: " .. profileType)
+        self:RefreshSettingsPanels()
 
         local returnValue = true
-        callHook("AfterUpdateActiveSettings", returnValue)
+        callHook(self, "AfterUpdateActiveSettings", returnValue)
         return returnValue
     end
 
-    function addon.ExportSettings()
-        callHook("BeforeExportSettings")
+    function addon:ExportSettings()
+        callHook(self, "BeforeExportSettings")
 
         local exportData = {
-            addon = addonName,
-            version = tostring(addon.config.version),
-            sadCoreVersion = tostring(addon.sadCore.version),
-            settings = addon.settings
+            addon = self.addonName,
+            version = tostring(self.config.version),
+            sadCoreVersion = tostring(self.sadCore.version),
+            settings = self.settings
         }
 
-        local LibSerialize = addon.LibSerialize
-        local LibCompress = addon.LibCompress
+        local LibSerialize = self.LibSerialize
+        local LibCompress = self.LibCompress
         local success, serialized = pcall(function()
             return LibSerialize:Serialize(exportData)
         end)
         if not success or not serialized then
-            addon.debug("Serialize failed.")
-            callHook("AfterExportSettings", false)
+            self:debug("Serialize failed.")
+            callHook(self, "AfterExportSettings", false)
             return false
         end
         local encoded = LibCompress:Encode(serialized)
         if not encoded then
-            addon.debug("Encode failed.")
-            callHook("AfterExportSettings", false)
+            self:debug("Encode failed.")
+            callHook(self, "AfterExportSettings", false)
             return false
         end
 
-        addon.debug(encoded)
+        self:debug(encoded)
 
-        addon.ShowDialog({
+        self:ShowDialog({
             title = "shareSettingsTitle",
             controls = {{
                 type = "inputBox",
@@ -1787,88 +1821,88 @@ do -- Utility Functions
             }}
         })
 
-        callHook("AfterExportSettings", encoded)
+        callHook(self, "AfterExportSettings", encoded)
         return encoded
     end
 
-    function addon.ImportSettings(serializedString)
-        serializedString = callHook("BeforeImportSettings", serializedString)
+    function addon:ImportSettings(serializedString)
+        serializedString = callHook(self, "BeforeImportSettings", serializedString)
 
         if not serializedString or serializedString == "" then
-            callHook("AfterImportSettings", false)
+            callHook(self, "AfterImportSettings", false)
             return false
         end
 
-        local LibSerialize = addon.LibSerialize
-        local LibCompress = addon.LibCompress
+        local LibSerialize = self.LibSerialize
+        local LibCompress = self.LibCompress
 
-        addon.debug("Decoding import string...")
+        self:debug("Decoding import string...")
         local decoded = LibCompress:Decode(serializedString)
         if not decoded then
-            addon.error(addon.L("importDecodeFailed"))
-            callHook("AfterImportSettings", false)
+            self:error(self:L("importDecodeFailed"))
+            callHook(self, "AfterImportSettings", false)
             return false
         end
-        addon.debug("Decode successful. Deserializing...")
+        self:debug("Decode successful. Deserializing...")
 
         local success, data = LibSerialize:Deserialize(decoded)
         if not success then
-            addon.error(addon.L("importDeserializeFailed") .. ": " .. tostring(data))
-            callHook("AfterImportSettings", false)
+            self:error(self:L("importDeserializeFailed") .. ": " .. tostring(data))
+            callHook(self, "AfterImportSettings", false)
             return false
         end
 
-        addon.debug("Deserialized data type: " .. type(data))
+        self:debug("Deserialized data type: " .. type(data))
         if type(data) == "table" then
-            addon.debug("Deserialized table contents:")
+            self:debug("Deserialized table contents:")
             for key, value in pairs(data) do
-                addon.debug("  " .. tostring(key) .. " = " .. tostring(value))
+                self:debug("  " .. tostring(key) .. " = " .. tostring(value))
             end
         else
-            addon.debug("Deserialized data: " .. tostring(data))
+            self:debug("Deserialized data: " .. tostring(data))
         end
 
         if not data or type(data) ~= "table" then
-            addon.error(addon.L("importInvalidData"))
-            callHook("AfterImportSettings", false)
+            self:error(self:L("importInvalidData"))
+            callHook(self, "AfterImportSettings", false)
             return false
         end
 
-        if data.addon ~= addonName then
-            addon.error(addon.L("importWrongAddon") .. ": " .. tostring(data.addon))
-            callHook("AfterImportSettings", false)
+        if data.addon ~= self.addonName then
+            self:error(self:L("importWrongAddon") .. ": " .. tostring(data.addon))
+            callHook(self, "AfterImportSettings", false)
             return false
         end
 
-        if tostring(data.version) ~= tostring(addon.config.version) then
-            addon.error(
-                addon.L("importVersionMismatch") .. " " .. addon.L("imported") .. ": " .. tostring(data.version) .. ", " ..
-                    addon.L("current") .. ": " .. tostring(addon.config.version))
-            callHook("AfterImportSettings", false)
+        if tostring(data.version) ~= tostring(self.config.version) then
+            self:error(
+                self:L("importVersionMismatch") .. " " .. self:L("imported") .. ": " .. tostring(data.version) .. ", " ..
+                    self:L("current") .. ": " .. tostring(self.config.version))
+            callHook(self, "AfterImportSettings", false)
             return false
         end
 
-        if tostring(data.sadCoreVersion) ~= tostring(addon.sadCore.version) then
-            addon.error("SAdCore version mismatch. " .. addon.L("imported") .. ": " .. tostring(data.sadCoreVersion) ..
-                            ", " .. addon.L("current") .. ": " .. tostring(addon.sadCore.version))
-            callHook("AfterImportSettings", false)
+        if tostring(data.sadCoreVersion) ~= tostring(self.sadCore.version) then
+            self:error("SAdCore version mismatch. " .. self:L("imported") .. ": " .. tostring(data.sadCoreVersion) ..
+                            ", " .. self:L("current") .. ": " .. tostring(self.sadCore.version))
+            callHook(self, "AfterImportSettings", false)
             return false
         end
 
         local importedSettings = data.settings
 
-        for key in pairs(addon.settings) do
-            addon.settings[key] = nil
+        for key in pairs(self.settings) do
+            self.settings[key] = nil
         end
 
         for key, value in pairs(importedSettings) do
-            addon.settings[key] = value
+            self.settings[key] = value
         end
 
-        addon.info(addon.L("importSuccess"))
-        addon.RefreshSettingsPanels()
+        self:info(self:L("importSuccess"))
+        self:RefreshSettingsPanels()
 
-        callHook("AfterImportSettings", true)
+        callHook(self, "AfterImportSettings", true)
         return true
     end
 

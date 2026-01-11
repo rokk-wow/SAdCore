@@ -7,14 +7,15 @@ SAdCore is a lightweight, embeddable framework for rapidly building simple addon
 **Note:** SAdCore is a library, not a standalone addon. It's embedded within other addons (similar to Ace3, LibStub, etc.).
 
 ## The SAd Creed
-
-- **Easy.** If a configuration setting is more complicated than a checkbox, it's probably wrong
+SAddons are:
+- **Easy.** If a configuration setting is more complicated than a single control, it's probably wrong
 - **Simple.** If a user doesn't understand your configuration without additional instructions, it's probably wrong
 - **Intuitive.** If a user can't remember where they saw a particular configuration setting, it's probably wrong
 - **Relevant.** If a configuration setting doesn't directly relate to the name of the addon, it's probably wrong
 - **Respectful.** If a users game setting is changed just by installing the addon, it's probably wrong
-- **Affirmative.** Logic should always enable, not disable ("Show Map", not "Hide Map")
-- **Robust.** All code exists inside addon functions. Setup is handled with a single `addon.Setup()` call
+- **Affirmative.** Logic should always enable, not disable (a checkbox should "Show Map", not "Hide Map")
+- **Robust.** All code exists inside scoped functions. No global code exists
+- **On Time.** All code should run based on proper events
 
 ## Installation
 
@@ -68,10 +69,15 @@ SAdCore is a lightweight, embeddable framework for rapidly building simple addon
    local SAdCore = LibStub("SAdCore-1")
    local addon = SAdCore:GetAddon(addonName)
    
-   -- Configure your addon
-   function addon.LoadConfig()
-       addon.config.version = "1.0"
-       addon.config.settings.main = {
+   -- Configure SavedVariables (must match your .toc declarations)
+   addon.savedVarsGlobal = YourAddon_Settings_Global
+   addon.savedVarsPerChar = YourAddon_Settings_Char
+   addon.compartmentFuncName = "YourAddon_Compartment_Func"
+   
+   -- Configure your addon and settings panels
+   function addon:LoadConfig()
+       self.config.version = "1.0"
+       self.config.settings.main = {
            title = "settingsTitle",
            controls = {
                {
@@ -84,9 +90,6 @@ SAdCore is a lightweight, embeddable framework for rapidly building simple addon
        }
    end
    
-   -- Setup: Automatically handles ADDON_LOADED and initialization
-   addon.Setup(YourAddon_Settings_Global, YourAddon_Settings_Char, "YourAddon_Compartment_Func")
-   
    -- Localization
    addon.locale = {}
    addon.locale.enEN = {
@@ -95,7 +98,11 @@ SAdCore is a lightweight, embeddable framework for rapidly building simple addon
    }
    ```
 
-**Important**: The SavedVariable names passed to `Setup()` must match exactly what's declared in your `.toc` file. The compartment function name is optional (pass `nil` if not needed).
+**Important**: 
+- SavedVariable names must match exactly what's declared in your `.toc` file
+- Use **colon syntax** (`function addon:MethodName()`) for all functions
+- Inside functions, use **`self`** to reference the addon instance
+- Initialization happens automatically when your addon loads
 
 ## Quick Start: Creating a New Addon
 
@@ -151,7 +158,7 @@ That's it! You now have a working addon with a settings panel, SavedVariables pe
 - ✅ Addons can communicate through the shared core
 
 **Addon Independence**: Each addon manages its own:
-- Lifecycle (via `addon.Setup()` method)
+- Lifecycle (automatic initialization via `GetAddon()`)
 - SavedVariables declaration in .toc
 - Compartment function registration
 - Settings panels and UI
@@ -159,67 +166,34 @@ That's it! You now have a working addon with a settings panel, SavedVariables pe
 
 SAdCore provides the framework functions while respecting each addon's autonomy.
 
-## Initialization Methods
+## Initialization
 
-SAdCore provides two ways to initialize your addon:
-
-### addon.Setup() - Recommended (Simple)
-
-The easiest way to initialize your addon. Just call `Setup()` with your SavedVariables and optional compartment function:
+SAdCore uses **automatic initialization** - you don't need to call any setup functions. Just set your SavedVariables properties and define your functions:
 
 ```lua
-addon.Setup(YourAddon_Settings_Global, YourAddon_Settings_Char, "YourAddon_Compartment_Func")
+local addonName = ...
+local SAdCore = LibStub("SAdCore-1")
+local addon = SAdCore:GetAddon(addonName)
+
+-- Saved Variable definitions and Addon Compartment Function must match what's in your .toc
+addon.savedVarsGlobal = YourAddon_Settings_Global
+addon.savedVarsPerChar = YourAddon_Settings_Char
+addon.compartmentFuncName = "YourAddon_Compartment_Func"
+
+-- Define your configuration
+function addon:LoadConfig()
+    self.config.version = "1.0"
+    -- Your settings here
+end
 ```
 
-**Parameters:**
-- `savedVarsGlobal` - Your global SavedVariables table (or `nil`)
-- `savedVarsPerChar` - Your per-character SavedVariables table (or `nil`)
-- `compartmentFuncName` - (Optional) Name of your compartment function as a string, or `nil` if not using
+**What happens automatically:**
+1. `GetAddon()` creates your addon instance and registers for `ADDON_LOADED`
+2. When your addon loads, SAdCore reads `savedVarsGlobal` and `savedVarsPerChar` from your addon instance
+3. `Initialize()` is called automatically with your SavedVariables
+4. Your `LoadConfig()` function is called
+5. Compartment function is registered
 
-**What it does automatically:**
-- Registers for the `ADDON_LOADED` event
-- Calls `Initialize()` when your addon loads
-- Sets up the compartment function
-- Cleans up after initialization
-
-**Example:**
-```lua
--- Simple setup with all features
-addon.Setup(MyAddon_Settings_Global, MyAddon_Settings_Char, "MyAddon_Compartment_Func")
-
--- Without compartment function
-addon.Setup(MyAddon_Settings_Global, MyAddon_Settings_Char)
-
--- Character-only settings
-addon.Setup(nil, MyAddon_Settings_Char)
-```
-
-### addon:Initialize() - Advanced (Manual Control)
-
-For advanced users who need custom initialization logic or want to handle `ADDON_LOADED` themselves:
-
-```lua
-local frame = CreateFrame("Frame")
-frame:RegisterEvent("ADDON_LOADED")
-frame:SetScript("OnEvent", function(self, event, loadedAddon)
-    if loadedAddon == addonName then
-        addon:Initialize(YourAddon_Settings_Global, YourAddon_Settings_Char)
-        
-        -- Your custom initialization code here
-        
-        YourAddon_Compartment_Func = function()
-            addon.OpenSettings()
-        end
-        
-        self:UnregisterEvent("ADDON_LOADED")
-    end
-end)
-```
-
-**Use this if you need to:**
-- Run custom code before or after initialization
-- Conditionally initialize based on game state
-- Handle multiple addons with interdependencies
 
 ## Localization
 
@@ -248,8 +222,7 @@ All controls support these common properties:
 - **`type`** (required) - The control type: `"header"`, `"description"`, `"checkbox"`, `"dropdown"`, `"slider"`, `"colorPicker"`, `"inputBox"`, or `"button"`
 - **`name`** (required) - Localization key used for both display text and variable storage. If the key is not found in localization, it displays as `[keyName]` to alert the developer
 - **`persistent`** (optional) - When `true`, the control's value is saved to SavedVariables (either global or per-character). When absent or `false`, the control is session-only and not persisted. Applies to: `checkbox`, `dropdown`, `slider`, `inputBox`
-- **`onValueChange`** (optional) - Callback function that fires immediately when the user changes the control's value. Receives the new value as a parameter. Perfect for applying settings in real-time without requiring a UI reload. Applies to: `checkbox`, `dropdown`, `slider`, `colorPicker`, `inputBox`
-- **`onLoad`** (optional) - Callback function that fires when the game starts or the addon loads. Receives the saved value as a parameter. Applies to: `checkbox`, `dropdown`, `slider`, `colorPicker`, `inputBox`
+- **`onValueChange`** (optional) - Callback function that fires when the control's value changes (either from user interaction or when the addon loads with saved values). Receives the new value as a parameter. Perfect for applying settings in real-time. Applies to: `checkbox`, `dropdown`, `slider`, `colorPicker`, `inputBox`
 
 ### Automatic Tooltips
 
@@ -277,7 +250,7 @@ Set `persistent = true` to save settings permanently (survives logout/exit). Con
 
 **Example (persistent):**
 ```lua
-function addon.EnableNotificationSystem(isEnabled)
+function addon:EnableNotificationSystem(isEnabled)
     -- Your code here
 end
 
@@ -286,14 +259,13 @@ end
     name = "enableNotifications",
     default = true,
     persistent = true,
-    onValueChange = addon.EnableNotificationSystem,
-    onLoad = addon.EnableNotificationSystem
+    onValueChange = self.EnableNotificationSystem
 }
 ```
 
 **Note:** A tooltip will automatically appear if you add `"enableNotificationsTooltip"` to your localization file.
 
-Use **onValueChange** when the user changes a setting. Use **onLoad** when the addon loads. Often you'll use both.
+The `onValueChange` function is called both when the user changes the setting AND when the addon loads with the saved value.
 
 ## Example Controls
 
@@ -320,8 +292,7 @@ addon.config.settings.example = {
             name = "exampleCheckbox",
             default = true,
             persistent = true,
-            onValueChange = addon.exampleCheckboxChanged,
-            onLoad = addon.exampleCheckboxChanged
+            onValueChange = self.exampleCheckboxChanged
         },
         -- Checkbox (session-only - not saved)
         {
@@ -341,8 +312,7 @@ addon.config.settings.example = {
                 {value = "option2", label = "dropdownOption2"},
                 {value = "option3", label = "dropdownOption3"}
             },
-            onValueChange = addon.exampleDropdownChanged,
-            onLoad = addon.exampleDropdownChanged
+            onValueChange = self.exampleDropdownChanged
         },
         
         -- Slider (persisted to database)
@@ -354,8 +324,7 @@ addon.config.settings.example = {
             max = 100,
             step = 5,
             persistent = true,
-            onValueChange = addon.exampleSliderChanged,
-            onLoad = addon.exampleSliderChanged
+            onValueChange = self.exampleSliderChanged
         },
         
         -- Color Picker (persisted to database)
@@ -366,8 +335,7 @@ addon.config.settings.example = {
             name = "exampleColor",
             default = "#FFFFFF",
             persistent = true,
-            onValueChange = addon.exampleColorChanged,
-            onLoad = addon.exampleColorChanged
+            onValueChange = self.exampleColorChanged
         },
         
         -- Input Box (session-only)
@@ -376,78 +344,105 @@ addon.config.settings.example = {
             name = "exampleInput",
             default = "Enter text here",
             buttonText = "applyButton",
-            onClick = addon.exampleInputClicked
+            onClick = self.exampleInputClicked
         },
         
         -- Button
         {
             type = "button",
             name = "exampleButton",
-            onClick = addon.exampleButtonClicked
+            onClick = self.exampleButtonClicked
         }
     }
 }
 
-function addon.exampleCheckboxChanged(isChecked)
-    addon.info("Checkbox changed to: " .. tostring(isChecked))
+function addon:exampleCheckboxChanged(isChecked)
+    self:info("Checkbox changed to: " .. tostring(isChecked))
 end
 
-function addon.exampleDropdownChanged(selectedValue)
-    addon.info("Dropdown changed to: " .. selectedValue)
+function addon:exampleDropdownChanged(selectedValue)
+    self:info("Dropdown changed to: " .. selectedValue)
 end
 
-function addon.exampleSliderChanged(value)
-    addon.info("Slider changed to: " .. value)
+function addon:exampleSliderChanged(value)
+    self:info("Slider changed to: " .. value)
 end
 
-function addon.exampleColorChanged(hexColor)
-    addon.info("Color changed to: " .. hexColor)
+function addon:exampleColorChanged(hexColor)
+    self:info("Color changed to: " .. hexColor)
 end
 
-function addon.exampleInputClicked(inputText, editBox)
-    addon.info("Input value: " .. inputText)
+function addon:exampleInputClicked(inputText, editBox)
+    self:info("Input value: " .. inputText)
 end
 
-function addon.exampleButtonClicked()
-    addon.info("Example button clicked!")
+function addon:exampleButtonClicked()
+    self:info("Example button clicked!")
 end
 ```
 
 ## Accessing Saved Settings
 
-Settings are saved to `addon.settings` organized by panel key. Access control values using `addon.settings.panelKey.controlName`.
+Settings are saved to `self.settings` organized by panel key. Access control values using `self.settings.panelKey.controlName`.
 
 **Example:**
 ```lua
-function addon.PrintDebuggingStatus()
-    if addon.settings.main.enableDebugging then
-        addon.info("Debugging is currently ENABLED")
+function addon:PrintDebuggingStatus()
+    if self.settings.main.enableDebugging then
+        self:info("Debugging is currently ENABLED")
     else
-        addon.info("Debugging is currently DISABLED")
+        self:info("Debugging is currently DISABLED")
     end
 end
 ```
+
+## Common API Functions
+
+These are the most commonly used functions available on the `self` object within your addon methods:
+
+### Logging
+- **`self:debug(text)`** - Only displays when "Enable Debugging" is enabled in settings
+- **`self:info(text)`** - Always displays (informational messages)
+- **`self:error(text)`** - Always displays (error messages)
+
+### Localization
+- **`self:L(key)`** - Returns the localized string for the given key based on client language
+
+### Events & Commands
+- **`self:RegisterEvent(eventName, callback)`** - Register a WoW event with a callback function
+- **`self:RegisterSlashCommand(command, callback)`** - Register a custom slash command
+- **`self:RegisterZone(zoneName, callback)`** - Register a callback when player enters a zone
+
+### Zone Detection
+- **`self:GetCurrentZone()`** - Returns current zone: "ARENA", "BATTLEGROUND", "DUNGEON", "RAID", or "WORLD"
+
+### Settings
+- **`self:OpenSettings()`** - Opens the addon settings panel
+
+### Utilities
+- **`self:ShowDialog(title, message, onAccept, onCancel)`** - Display a confirmation dialog
+- **`self:Inspect(table)`** - Debug utility to inspect UI frame structures
 
 ## Slash Commands
 
 Your addon automatically gets a slash command: `/youraddonname`
 
-Typing it alone opens settings. Register custom commands with `addon.RegisterSlashCommand(command, callback)`:
+Typing it alone opens settings. Register custom commands with `self:RegisterSlashCommand(command, callback)`:
 
 ```lua
-function addon.RegisterFunctions()
-    addon.RegisterSlashCommand("hello", addon.HelloCommand)
-    addon.RegisterSlashCommand("debug", addon.DebugCommand)
+function addon:RegisterFunctions()
+    self:RegisterSlashCommand("hello", self.HelloCommand)
+    self:RegisterSlashCommand("debug", self.DebugCommand)
 end
 
-function addon.HelloCommand()
-    addon.info("Hello, World!")
+function addon:HelloCommand()
+    self:info("Hello, World!")
 end
 
-function addon.DebugCommand(enabled)
+function addon:DebugCommand(enabled)
     if enabled == "on" then
-        addon.settings.main.enableDebugging = true
-        addon.info("Debugging enabled")
+        self.settings.main.enableDebugging = true
+        self:info("Debugging enabled")
     end
 end
 ```
@@ -456,32 +451,32 @@ end
 
 ## Event Registration
 
-Register WoW events with `addon.RegisterEvent(eventName, callback)`:
+Register WoW events with `self:RegisterEvent(eventName, callback)`:
 
 ```lua
-function addon.RegisterFunctions()
-    addon.RegisterEvent("PLAYER_ENTERING_WORLD", addon.OnPlayerEnteringWorld)
-    addon.RegisterEvent("PLAYER_REGEN_DISABLED", addon.OnEnterCombat)
-    addon.RegisterEvent("UNIT_HEALTH", addon.OnUnitHealth)
+function addon:RegisterFunctions()
+    self:RegisterEvent("PLAYER_ENTERING_WORLD", self.OnPlayerEnteringWorld)
+    self:RegisterEvent("PLAYER_REGEN_DISABLED", self.OnEnterCombat)
+    self:RegisterEvent("UNIT_HEALTH", self.OnUnitHealth)
 end
 
-function addon.OnPlayerEnteringWorld(event)
-    addon.info("Player entered world")
+function addon:OnPlayerEnteringWorld(event)
+    self:info("Player entered world")
 end
 
-function addon.OnEnterCombat(event)
-    addon.info("Entering combat")
+function addon:OnEnterCombat(event)
+    self:info("Entering combat")
 end
 
-function addon.OnUnitHealth(event, unitID)
+function addon:OnUnitHealth(event, unitID)
     if unitID == "player" then
         local health = UnitHealth("player")
-        addon.debug("Health: " .. health)
+        self:debug("Health: " .. health)
     end
 end
 ```
 
-Unregister: `addon.eventFrame:UnregisterEvent("UNIT_HEALTH")`
+Unregister: `self.eventFrame:UnregisterEvent("UNIT_HEALTH")`
 
 ## Zone Management (Optional)
 
@@ -502,19 +497,19 @@ end
 Register a callback for when the player enters a zone:
 
 ```lua
-function addon.RegisterFunctions()
-    addon.RegisterZone("ARENA", addon.enteringArena)
-    addon.RegisterZone("BATTLEGROUND", addon.enteringBattleground)
-    addon.RegisterZone("WORLD", addon.enteringWorld)
+function addon:RegisterFunctions()
+    self:RegisterZone("ARENA", self.enteringArena)
+    self:RegisterZone("BATTLEGROUND", self.enteringBattleground)
+    self:RegisterZone("WORLD", self.enteringWorld)
 end
 
-function addon.enteringArena()
-    addon.info("Entered arena - applying arena settings")
+function addon:enteringArena()
+    self:info("Entered arena - applying arena settings")
     -- Apply your arena-specific settings
 end
 
-function addon.enteringWorld()
-    addon.info("Entered world - restoring default settings")
+function addon:enteringWorld()
+    self:info("Entered world - restoring default settings")
     -- Restore default settings
 end
 ```
@@ -533,7 +528,7 @@ Zone changes are automatically detected from these events:
 ### Getting Current Zone
 
 ```lua
-local currentZone = addon.GetCurrentZone()
+local currentZone = self:GetCurrentZone()
 -- Returns: "ARENA", "BATTLEGROUND", "DUNGEON", "RAID", or "WORLD"
 ```
 
@@ -542,19 +537,13 @@ local currentZone = addon.GetCurrentZone()
 To execute code when leaving a zone, use hooks:
 
 ```lua
-function addon.BeforeHandleZoneChange()
-    if addon.previousZone == "ARENA" then
-        addon.info("Leaving arena")
+function addon:BeforeHandleZoneChange()
+    if self.previousZone == "ARENA" then
+        self:info("Leaving arena")
         -- Your cleanup code
     end
 end
 ```
-
-## Logging Functions
-
-- **`addon.debug(text)`** - Only displays when "Enable Debugging" is enabled in settings
-- **`addon.info(text)`** - Always displays (informational messages)
-- **`addon.error(text)`** - Always displays (error messages)
 
 ## Hooks
 
@@ -562,14 +551,14 @@ Every framework function has Before/After hooks for extending functionality.
 
 **Before hooks** receive and must return parameters (can modify them):
 ```lua
-function addon.BeforeL(key)
+function addon:BeforeL(key)
     return key:upper()  -- Modify parameter
 end
 ```
 
 **After hooks** receive return values (observation only):
 ```lua
-function addon.AfterAddCheckbox(checkbox, newYOffset)
+function addon:AfterAddCheckbox(checkbox, newYOffset)
     checkbox:SetAlpha(0.9)  -- Customize the checkbox
 end
 ```
