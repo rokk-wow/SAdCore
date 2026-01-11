@@ -149,6 +149,18 @@ Starting from scratch? Here's the complete process:
 
 That's it! You now have a working addon with a settings panel, SavedVariables persistence, and import/export functionality.
 
+## Adding New Lua Files
+
+To add a new Lua file to your addon: add it to your `.toc` file, then include these three lines at the top:
+
+```lua
+local addonName = ...
+local SAdCore = LibStub("SAdCore-1")
+local addon = SAdCore:GetAddon(addonName)
+```
+
+All files share the same `addon` instance and can define functions using colon syntax.
+
 ## How It Works
 
 **LibStub Singleton Pattern**: When multiple addons embed SAdCore, LibStub ensures only one shared instance runs. If Addon A has SAdCore v1.2 and Addon B has v1.5, both will use v1.5 (the highest version). This means:
