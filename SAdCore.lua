@@ -89,8 +89,15 @@ function SAdCore:GetAddon(addonName)
             if loadedAddon == addonInstance.addonName then
                 -- Initialize addon with SavedVariables (look up by name in global scope)
                 -- addonInstance stores the variable NAMES as strings, we look them up in _G
+                print("[SAdCore] Loading addon: " .. addonInstance.addonName)
+                print("[SAdCore] savedVarsGlobalName: " .. tostring(addonInstance.savedVarsGlobalName))
+                print("[SAdCore] savedVarsPerCharName: " .. tostring(addonInstance.savedVarsPerCharName))
+                
                 local savedVarsGlobal = addonInstance.savedVarsGlobalName and _G[addonInstance.savedVarsGlobalName] or nil
                 local savedVarsPerChar = addonInstance.savedVarsPerCharName and _G[addonInstance.savedVarsPerCharName] or nil
+                
+                print("[SAdCore] savedVarsGlobal loaded: " .. tostring(savedVarsGlobal ~= nil))
+                print("[SAdCore] savedVarsPerChar loaded: " .. tostring(savedVarsPerChar ~= nil))
                 
                 addonInstance:Initialize(savedVarsGlobal, savedVarsPerChar)
                 

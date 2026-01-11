@@ -3,6 +3,8 @@ local SAdCore = LibStub("SAdCore-1")
 local addon = SAdCore:GetAddon(addonName)
 
 -- Saved Variable definitions and Addon Compartment Function must match what's in your .toc
+-- IMPORTANT: Use savedVarsGlobalName and savedVarsPerCharName (with "Name" suffix)
+-- These should be the NAMES (strings) of your SavedVariables, not the variables themselves
 addon.savedVarsGlobalName = "MyAddon_Settings_Global"
 addon.savedVarsPerCharName = "MyAddon_Settings_Char"
 addon.compartmentFuncName = "MyAddon_Compartment_Func"
