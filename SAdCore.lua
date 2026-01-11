@@ -77,21 +77,24 @@ function SAdCore:GetAddon(addonName)
             addonName = addonName,
             core = self
         }
-        -- Set metatable so newAddon inherits methods from prototype
         setmetatable(newAddon, { __index = self.prototype })
         self.addons[addonName] = newAddon
         
-        -- Automatically register for ADDON_LOADED event
         local addonInstance = newAddon
         local eventFrame = CreateFrame("Frame")
         eventFrame:RegisterEvent("ADDON_LOADED")
         eventFrame:SetScript("OnEvent", function(self, event, loadedAddon)
             if loadedAddon == addonInstance.addonName then
-                -- Initialize addon with SavedVariables (look up by name in global scope)
-                -- addonInstance stores the variable NAMES as strings, we look them up in _G
                 print("[SAdCore] Loading addon: " .. addonInstance.addonName)
                 print("[SAdCore] savedVarsGlobalName: " .. tostring(addonInstance.savedVarsGlobalName))
                 print("[SAdCore] savedVarsPerCharName: " .. tostring(addonInstance.savedVarsPerCharName))
+                
+                if addonInstance.savedVarsGlobalName then
+                    _G[addonInstance.savedVarsGlobalName] = _G[addonInstance.savedVarsGlobalName] or {}
+                end
+                if addonInstance.savedVarsPerCharName then
+                    _G[addonInstance.savedVarsPerCharName] = _G[addonInstance.savedVarsPerCharName] or {}
+                end
                 
                 local savedVarsGlobal = addonInstance.savedVarsGlobalName and _G[addonInstance.savedVarsGlobalName] or nil
                 local savedVarsPerChar = addonInstance.savedVarsPerCharName and _G[addonInstance.savedVarsPerCharName] or nil
@@ -101,14 +104,12 @@ function SAdCore:GetAddon(addonName)
                 
                 addonInstance:Initialize(savedVarsGlobal, savedVarsPerChar)
                 
-                -- Register addon compartment function if provided
                 if addonInstance.compartmentFuncName then
                     _G[addonInstance.compartmentFuncName] = function()
                         addonInstance:OpenSettings()
                     end
                 end
                 
-                -- Unregister the event
                 self:UnregisterEvent("ADDON_LOADED")
             end
         end)
