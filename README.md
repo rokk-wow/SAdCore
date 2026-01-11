@@ -56,7 +56,7 @@ SAddons are:
    ## SavedVariablesPerCharacter: YourAddon_Settings_Char
    ## AddonCompartmentFunc: YourAddon_Compartment_Func
 
-   # Load SAdCore library (includes all dependencies)
+   # Load SAdCore library
    Libs\SAdCore\SAdCore.toc
 
    # Your addon files
