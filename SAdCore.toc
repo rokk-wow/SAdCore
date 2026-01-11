@@ -5,10 +5,8 @@
 ## Version: 1.1
 ## X-Category: Library
 
-# Load dependencies
 Libs\LibSerialize\LibStub\LibStub.lua
 Libs\LibSerialize\LibSerialize.lua
 Libs\LibCompress\LibCompress.lua
 
-# Load SAdCore library
 SAdCore.lua
