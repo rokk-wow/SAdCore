@@ -225,6 +225,14 @@ do -- Initialization
             self.settingsChar.main = {}
         end
 
+        -- Assign the tables back to _G so WoW can persist them
+        if self.savedVarsGlobalName then
+            _G[self.savedVarsGlobalName] = self.settingsGlobal
+        end
+        if self.savedVarsPerCharName then
+            _G[self.savedVarsPerCharName] = self.settingsChar
+        end
+
         self.settings = (self.settingsChar.useCharacterSettings) and self.settingsChar or self.settingsGlobal
 
         local returnValue = true
